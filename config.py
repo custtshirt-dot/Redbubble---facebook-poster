@@ -1,30 +1,43 @@
 """
-⚙️ إعدادات المشروع
+🔧 Configuration Module
+Loads all environment variables and settings
 """
 import os
+import sys
 from dotenv import load_dotenv
 
+# Load .env file if exists (for local development)
 load_dotenv()
 
-# ============ Facebook ============
-FB_PAGE_ID = os.getenv("FB_PAGE_ID", "772609922609531")
-FB_TOKEN = os.getenv("FB_TOKEN", "ضع_التوكن_هنا")
+# ============================================================
+# 🔒 SECRETS (from GitHub Secrets or .env)
+# ============================================================
+FB_PAGE_ID = os.getenv('FB_PAGE_ID')
+FB_TOKEN = os.getenv('FB_TOKEN')
+GROQ_API_KEY = os.getenv('GROQ_API_KEY')
 
-# ============ Groq AI ============
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "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")
-GROQ_MODEL = "llama-3.3-70b-versatile"  # أقوى موديل مجاني
+# ============================================================
+# 📝 USER INPUTS (from GitHub Actions)
+# ============================================================
+REDBUBBLE_URL = os.getenv('REDBUBBLE_URL', '').strip()
+POST_TYPE = os.getenv('POST_TYPE', 'album').lower()
+MAX_IMAGES = int(os.getenv('MAX_IMAGES', '20'))
+LANGUAGE = os.getenv('LANGUAGE', 'english').lower()
+STYLE = os.getenv('STYLE', 'mixed').lower()
 
-# ============ Headers ============
+# ============================================================
+# 🌐 HTTP HEADERS
+# ============================================================
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
     'Referer': 'https://www.redbubble.com/',
 }
 
-# ============ منتجات الأولوية (المبيعات الأخيرة) ============
-PRIORITY_PRODUCTS = [
-    'sticker', 'postcard', 'holographic', 'magnet', 'pin'
-]
+# ============================================================
+# 🎯 PRODUCT PRIORITY (sales data from your screenshot)
+# ============================================================
+PRIORITY_PRODUCTS = ['sticker', 'postcard', 'holographic', 'magnet', 'pin']
 
 PRODUCT_ORDER = [
     'sticker', 'postcard', 'magnet', 'pin', 'mug', 'tshirt', 't-shirt',
@@ -37,10 +50,36 @@ PRODUCT_ORDER = [
     'water-bottle', 'travel-mug', 'coaster', 'clock'
 ]
 
-# ============ Output Folders ============
-OUTPUT_DIR = "output"
-VIDEO_DIR = os.path.join(OUTPUT_DIR, "videos")
-TEMP_DIR = os.path.join(OUTPUT_DIR, "temp")
-
-os.makedirs(VIDEO_DIR, exist_ok=True)
-os.makedirs(TEMP_DIR, exist_ok=True)
+# ============================================================
+# ✅ VALIDATION
+# ============================================================
+def validate_config():
+    """Check that required settings exist"""
+    missing = []
+    if not FB_PAGE_ID:
+        missing.append('FB_PAGE_ID')
+    if not FB_TOKEN:
+        missing.append('FB_TOKEN')
+    if not REDBUBBLE_URL:
+        missing.append('REDBUBBLE_URL')
+    
+    if missing:
+        print(f"❌ Missing required variables: {', '.join(missing)}")
+        sys.exit(1)
+    
+    if not GROQ_API_KEY:
+        print("⚠️ Warning: GROQ_API_KEY not set. Will use template captions.")
+    
+    print(f"""
+╔══════════════════════════════════════════════════╗
+║  🚀 REDBUBBLE AUTO POSTER - Configuration       ║
+╠══════════════════════════════════════════════════╣
+║  🔗 URL:        {REDBUBBLE_URL[:33]}...
+║  📝 Type:       {POST_TYPE}
+║  📸 Max Images: {MAX_IMAGES}
+║  🌍 Language:   {LANGUAGE}
+║  🎨 Style:      {STYLE}
+║  🤖 AI:         {'Enabled (Groq)' if GROQ_API_KEY else 'Disabled (Templates)'}
+╚══════════════════════════════════════════════════╝
+""")
+    return True
