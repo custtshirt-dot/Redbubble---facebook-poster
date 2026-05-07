@@ -9,9 +9,20 @@ from config import FB_PAGE_ID, FB_TOKEN, HEADERS
 
 
 def upload_photo(image_url, published=False):
-    """Upload single photo to Facebook (unpublished by default)"""
+    """Upload single photo to Facebook with detailed errors"""
     try:
-        img_data = requests.get(image_url, headers=HEADERS, timeout=15).content
+        # Download image
+        img_response = requests.get(image_url, headers=HEADERS, timeout=15)
+        if img_response.status_code != 200:
+            print(f"⚠️ Image download failed: HTTP {img_response.status_code}")
+            return None
+        
+        img_data = img_response.content
+        if len(img_data) < 1000:
+            print(f"⚠️ Image too small: {len(img_data)} bytes")
+            return None
+        
+        # Upload to Facebook
         url = f"https://graph.facebook.com/v19.0/{FB_PAGE_ID}/photos"
         files = {'source': ('img.jpg', io.BytesIO(img_data), 'image/jpeg')}
         data = {
@@ -19,13 +30,22 @@ def upload_photo(image_url, published=False):
             'access_token': FB_TOKEN
         }
         r = requests.post(url, files=files, data=data, timeout=30)
-        return r.json().get('id')
+        result = r.json()
+        
+        if 'id' in result:
+            return result['id']
+        else:
+            error = result.get('error', {})
+            print(f"❌ FB Upload Error: {error.get('message', 'Unknown')}")
+            print(f"   Code: {error.get('code', 'N/A')} | Type: {error.get('type', 'N/A')}")
+            return None
+            
     except Exception as e:
-        print(f"⚠️ Upload failed: {e}")
+        print(f"⚠️ Upload exception: {e}")
         return None
 
 
-def upload_photos_parallel(image_urls, max_workers=10):
+def upload_photos_parallel(image_urls, max_workers=5):
     """Upload multiple photos in parallel, preserving order"""
     print(f"⚡ Uploading {len(image_urls)} images in parallel...")
     
@@ -159,11 +179,13 @@ def post_reels(video_path, caption):
         
         # Step 2: Upload video
         with open(video_path, 'rb') as f:
-            requests.post(upload_url, headers={
-                'Authorization': f'OAuth {FB_TOKEN}',
-                'offset': '0',
-                'file_size': str(len(f.read()))
-            }, data=open(video_path, 'rb').read())
+            video_bytes = f.read()
+        
+        requests.post(upload_url, headers={
+            'Authorization': f'OAuth {FB_TOKEN}',
+            'offset': '0',
+            'file_size': str(len(video_bytes))
+        }, data=video_bytes)
         
         # Step 3: Publish
         publish = requests.post(
