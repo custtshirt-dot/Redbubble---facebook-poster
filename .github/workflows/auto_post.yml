@@ -1,12 +1,55 @@
 name: 🚀 Auto Post to Facebook
 
 on:
-  # تشغيل يدوي بزرار
   workflow_dispatch:
-  
-  # تشغيل تلقائي كل 6 ساعات
-  schedule:
-    - cron: '0 */6 * * *'
+    inputs:
+      redbubble_url:
+        description: '🔗 Redbubble Collection URL'
+        required: true
+        type: string
+        default: 'https://www.redbubble.com/people/custtshirt/shop'
+      
+      post_type:
+        description: '📝 Post Type'
+        required: true
+        type: choice
+        default: 'album'
+        options:
+          - album
+          - single
+          - carousel
+          - reels
+          - video
+          - text
+          - link
+          - all
+      
+      max_images:
+        description: '📸 Max Images (1-30)'
+        required: false
+        type: string
+        default: '20'
+      
+      language:
+        description: '🌍 Caption Language'
+        required: true
+        type: choice
+        default: 'english'
+        options:
+          - english
+          - arabic
+          - both
+      
+      style:
+        description: '🎨 Caption Style'
+        required: true
+        type: choice
+        default: 'mixed'
+        options:
+          - funny
+          - emotional
+          - hard_sell
+          - mixed
 
 jobs:
   post:
@@ -21,6 +64,12 @@ jobs:
         with:
           python-version: '3.11'
       
+      - name: 📦 Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+      
       - name: 📦 Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -28,7 +77,24 @@ jobs:
       
       - name: 🚀 Run the bot
         env:
+          # 🔒 Secrets from GitHub
           FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
           FB_TOKEN: ${{ secrets.FB_TOKEN }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          
+          # 📝 Inputs from user
+          REDBUBBLE_URL: ${{ inputs.redbubble_url }}
+          POST_TYPE: ${{ inputs.post_type }}
+          MAX_IMAGES: ${{ inputs.max_images }}
+          LANGUAGE: ${{ inputs.language }}
+          STYLE: ${{ inputs.style }}
+        
         run: python main.py
+      
+      - name: ✅ Success notification
+        if: success()
+        run: echo "🎉 Post published successfully!"
+      
+      - name: ❌ Failure notification
+        if: failure()
+        run: echo "⚠️ Something went wrong. Check logs above."
