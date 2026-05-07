@@ -1,158 +1,92 @@
 """
-🤖 توليد المحتوى بـ Groq AI
+🤖 AI Caption Generator using Groq
 """
 from groq import Groq
-from config import GROQ_API_KEY, GROQ_MODEL
-import templates
+from config import GROQ_API_KEY, LANGUAGE, STYLE
+from templates import get_template_caption, HASHTAGS
 import random
 
-client = Groq(api_key=GROQ_API_KEY)
+client = None
+if GROQ_API_KEY:
+    try:
+        client = Groq(api_key=GROQ_API_KEY)
+        print("✅ Groq AI initialized")
+    except Exception as e:
+        print(f"⚠️ Groq init failed: {e}")
 
 
-def generate_content(post_type, product_url, product_info=""):
-    """توليد محتوى احترافي حسب نوع البوست"""
+def generate_ai_caption(post_type='album', url='', design_hint='cat design'):
+    """Generate caption using Groq AI"""
     
-    prompts = {
-        "album": f"""You are an expert Facebook ad copywriter for Redbubble print-on-demand store.
-Write a HIGH-CONVERTING Facebook album post for this product collection: {product_url}
-Product info: {product_info}
-
-Requirements:
-- Strong scroll-stopping HOOK (first line must grab attention)
-- Compelling BODY (build desire, mention quality, variety, worldwide shipping)
-- Powerful CTA (drive clicks to buy)
-- Use emojis strategically
-- 12-15 viral hashtags at the end
-- Include the link: {product_url}
-- Total length: 150-200 words
-- Tone: Exciting, urgent, friendly
-
-Write ONLY the post text, ready to publish.""",
-
-        "single": f"""Write a SHORT punchy Facebook caption for a SINGLE product image from Redbubble.
-Product: {product_url}
-
-Requirements:
-- One killer hook line
-- 2-3 benefit lines
-- Strong CTA with link
-- 8-10 hashtags
-- Max 80 words
-- Use emojis
-
-Write ONLY the caption.""",
-
-        "carousel": f"""Write a STORYTELLING Facebook carousel post for Redbubble.
-Product: {product_url}
-
-Requirements:
-- Hook that promises a story
-- Tell a mini story (problem → solution = our product)
-- Build emotional connection
-- End with strong CTA
-- 10 hashtags
-- 120-150 words
-
-Write ONLY the post.""",
-
-        "reels": f"""Write a VIRAL Facebook Reels caption for Redbubble product.
-Product: {product_url}
-
-Requirements:
-- Trendy hook (POV, "Wait for it", "Tell me you...", etc)
-- Very short (40-60 words max)
-- Include trending hashtags
-- Strong CTA
-- Use line breaks for readability
-
-Write ONLY the caption.""",
-
-        "video": f"""Write a Facebook Video post caption for Redbubble showcase.
-Product: {product_url}
-
-Requirements:
-- Cinematic hook
-- Mention "watch till the end"
-- Showcase variety of products
-- CTA to shop
-- 100-130 words
-- 10 hashtags
-
-Write ONLY the caption.""",
-
-        "text": f"""Write an ENGAGING text-only Facebook post about Redbubble cat designs.
-Product link: {product_url}
-
-Requirements:
-- Ask an engaging question
-- Share a relatable opinion/story
-- Encourage comments
-- Mention link naturally
-- 80-120 words
-- Use emojis
-- 5-8 hashtags
-
-Write ONLY the post.""",
-
-        "link": f"""Write a Facebook link-share caption that drives clicks.
-Link: {product_url}
-
-Requirements:
-- Curiosity-driven hook
-- Tease what they'll find
-- Strong urgency
-- Direct CTA
-- 60-80 words
-- 8 hashtags
-
-Write ONLY the caption.""",
-
-        "story": f"""Write a Facebook Story text overlay (very short).
-Product: {product_url}
-
-Requirements:
-- Max 15 words
-- Urgent tone
-- One emoji
-- "Swipe up" or "Link in bio" style CTA
-
-Write ONLY the text."""
+    if not client:
+        return get_template_caption(STYLE, url, post_type)
+    
+    style_map = {
+        'funny': 'funny, witty, and humorous',
+        'emotional': 'emotional, heartfelt, and touching',
+        'hard_sell': 'urgent, persuasive, and sales-focused',
+        'mixed': random.choice(['funny', 'emotional', 'persuasive'])
     }
     
-    prompt = prompts.get(post_type, prompts["album"])
+    selected_style = style_map.get(STYLE, 'engaging')
+    lang_instruction = {
+        'english': 'Write ONLY in English.',
+        'arabic': 'اكتب باللغة العربية فقط.',
+        'both': 'Write in both English and Arabic.'
+    }.get(LANGUAGE, 'Write in English.')
     
+    type_instruction = {
+        'album': 'a Facebook album post showcasing multiple products',
+        'single': 'a single Facebook photo post',
+        'reels': 'a short Facebook Reels video caption (max 100 chars hook)',
+        'video': 'a Facebook video post caption',
+        'text': 'a text-only engagement post asking a question',
+        'link': 'a link post driving clicks to the shop',
+        'carousel': 'a carousel post telling a story',
+    }.get(post_type, 'a Facebook post')
+    
+    prompt = f"""You are a professional social media marketer for a Redbubble shop selling {design_hint}.
+
+Create {type_instruction} that is {selected_style}. {lang_instruction}
+
+Structure:
+1. HOOK (1-2 lines): Stop the scroll with curiosity, shock, or relatability
+2. BODY (3-5 lines): Build desire - features, benefits, social proof
+3. CTA (2-3 lines): Strong call-to-action with urgency
+4. Include emojis naturally
+5. End with: 🛒 SHOP: {url}
+6. Add these hashtags at the end: {HASHTAGS}
+
+Make it feel authentic, not salesy. Optimize for Facebook algorithm (engagement, comments, shares).
+Keep total under 500 words. Use line breaks for readability."""
+
     try:
-        print(f"🤖 Generating {post_type} content with Groq AI...")
         response = client.chat.completions.create(
-            model=GROQ_MODEL,
+            model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": "You are a viral Facebook marketing expert specialized in print-on-demand sales."},
+                {"role": "system", "content": "You are an expert Facebook marketing copywriter that creates viral, high-converting posts."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.9,
-            max_tokens=600,
+            max_tokens=800,
         )
-        content = response.choices[0].message.content.strip()
-        print(f"✅ AI generated {len(content)} characters")
-        return content
+        
+        caption = response.choices[0].message.content.strip()
+        print("✅ AI caption generated successfully")
+        return caption
+        
     except Exception as e:
-        print(f"⚠️ Groq AI failed: {e}")
-        print("📋 Falling back to templates...")
-        return templates.get_fallback_content(post_type, product_url)
+        print(f"⚠️ AI failed: {e}. Using template instead.")
+        return get_template_caption(STYLE, url, post_type)
 
 
-def generate_hashtags(product_info=""):
-    """توليد hashtags ذكية"""
-    try:
-        response = client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[{
-                "role": "user",
-                "content": f"Generate 15 viral Facebook hashtags for Redbubble cat product. Product info: {product_info}. Return only hashtags separated by spaces, no explanation."
-            }],
-            temperature=0.8,
-            max_tokens=200,
-        )
-        return response.choices[0].message.content.strip()
-    except:
-        return "#Redbubble #CatLovers #FunnyCats #Stickers #CustomGifts #CatMerch #UniqueGifts #CatMom #CatDad #GiftIdeas #CatHumor #StickerShop #Pawsome #CatsOfFacebook #TripodCat"
+def generate_design_hint(image_url):
+    """Extract design hint from image URL"""
+    url_lower = image_url.lower()
+    hints = []
+    if 'cat' in url_lower: hints.append('cats')
+    if 'tripod' in url_lower: hints.append('tripod cats')
+    if 'funny' in url_lower: hints.append('humor')
+    if 'horror' in url_lower or 'spooky' in url_lower: hints.append('horror/spooky')
+    if 'retro' in url_lower: hints.append('retro')
+    return ', '.join(hints) if hints else 'unique designs'
