@@ -1,56 +1,98 @@
 """
-📋 قوالب احتياطية (لو الـ AI فشل)
+📝 Caption Templates
+Used as fallback when AI is not available
 """
 import random
 
-HOOKS = [
-    "Stop scrolling 🛑 You NEED to see this design before it sells out...",
-    "I just got 4 sales in 24 hours from THIS design 🤯",
-    "POV: You finally found the perfect gift for cat lovers 🐱✨",
-    "This design is breaking the internet right now 🔥",
-    "Warning ⚠️ Once you see this, you'll want it on EVERYTHING",
-    "Trending NOW on Redbubble 📈 Don't miss out",
-    "The funniest cat design of 2026 just dropped 🎉",
+# 🔥 STRONG HOOKS (stop the scroll)
+HOOKS_EN = {
+    'funny': [
+        "POV: You just found your new favorite design 👀",
+        "Stop everything. This design is too good to scroll past 🛑",
+        "Warning ⚠️ Once you see this, you'll want it on EVERYTHING",
+        "This design lives rent-free in my customers' heads 🧠✨",
+        "Tell me you're a cat lover without telling me 🐱👇",
+    ],
+    'emotional': [
+        "Some designs just hit different 💖 This is one of them.",
+        "Made for the ones who truly understand... 🥺",
+        "When art meets passion, magic happens ✨",
+        "This isn't just merch. It's a whole vibe 💫",
+        "For everyone who needs this in their life right now 💝",
+    ],
+    'hard_sell': [
+        "🔥 SELLING FAST! Get yours before stock runs out",
+        "⏰ LIMITED TIME: Premium quality at unbeatable prices",
+        "💯 100+ happy customers can't be wrong - shop now!",
+        "🚨 TRENDING NOW on Redbubble - don't miss out!",
+        "⭐ Best-seller alert! Order today, ships worldwide 📦",
+    ]
+}
+
+# 💪 BODY TEMPLATES
+BODIES_EN = [
+    "✨ Premium quality printed on demand\n🎨 Unique design - not found anywhere else\n📦 Ships worldwide in days\n💯 100% satisfaction guaranteed\n\nAvailable on stickers, t-shirts, mugs, phone cases, and 70+ products!",
+    
+    "Why customers LOVE this:\n✅ Eye-catching original artwork\n✅ Made to last - premium materials\n✅ Perfect gift for any occasion\n✅ Multiple products to choose from\n\nGrab yours before this trends even more 🚀",
+    
+    "🐾 Designed with love\n🎁 The perfect unique gift\n⭐ Top-rated by Redbubble customers\n🌍 Worldwide shipping available\n\nFrom $1.57 stickers to premium apparel - pick what fits YOU 👇",
+    
+    "What makes this special:\n🔥 Design that turns heads\n💪 Vibrant prints that last\n🎉 70+ products to choose from\n🚚 Fast worldwide shipping\n\nDon't just like it - OWN it 💯",
 ]
 
-BODIES = [
-    "✨ Premium quality on demand\n🎨 Unique design\n📦 Worldwide shipping\n💯 Hundreds of happy customers",
-    "Why customers LOVE this:\n✅ Eye-catching artwork\n✅ Premium materials\n✅ Perfect gift\n✅ Ships worldwide",
-    "🐾 Designed for cat lovers\n🎁 Standout gift\n⭐ Top-rated\n🌍 Ships globally",
+# 🎯 STRONG CTAs
+CTAS_EN = [
+    "👇 Tap the link below to grab yours NOW\n💬 Comment which product you want!\n🔄 Share with someone who'd love this!",
+    
+    "🛒 SHOP NOW - link below ⬇️\n❤️ Like if you'd wear this\n💬 Tell me your favorite in the comments!",
+    
+    "⏰ Don't wait - order today:\n🔗 Direct link below\n📲 Save this post!\n👥 Tag a friend who NEEDS this!",
+    
+    "🎯 3 easy steps:\n1️⃣ Click the link\n2️⃣ Pick your product\n3️⃣ Enjoy worldwide shipping! 📦\n\n💬 Which one are you getting?",
 ]
 
-CTAS = [
-    "👇 Tap the link to grab yours NOW\n💬 Comment 'WANT' for direct link!",
-    "🛒 SHOP NOW before it's gone:\n👉 Click the link below",
-    "⏰ Limited stock - order today:\n🔗 Direct link below ⬇️",
-]
-
-HASHTAGS = "#Redbubble #CatLovers #FunnyCatGifts #Stickers #TripodCat #CatMom #CatDad #CustomGifts #UniqueGifts #CatMerch #StickerShop #GiftIdeas #CatHumor #Pawsome"
+# 🏷️ HASHTAGS
+HASHTAGS = "#Redbubble #CatLovers #FunnyCatGifts #Stickers #TripodCat #CatMom #CatDad #CustomGifts #UniqueGifts #CatMerch #StickerShop #GiftIdeas #CatHumor #Pawsome #CustTshirts"
 
 
-def get_fallback_content(post_type, url):
-    """قوالب احتياطية حسب نوع البوست"""
+def get_template_caption(style='mixed', url='', post_type='album'):
+    """Generate a caption from templates"""
     
-    hook = random.choice(HOOKS)
-    body = random.choice(BODIES)
-    cta = random.choice(CTAS)
+    if style == 'mixed':
+        style = random.choice(['funny', 'emotional', 'hard_sell'])
     
-    templates_dict = {
-        "album": f"{hook}\n\n{body}\n\n━━━━━━━━━━━━━━━━━━━\n{cta}\n━━━━━━━━━━━━━━━━━━━\n\n🛒 SHOP HERE 👇\n{url}\n\n{HASHTAGS}",
-        
-        "single": f"{hook}\n\n🛒 Get yours: {url}\n\n{HASHTAGS}",
-        
-        "carousel": f"{hook}\n\nLet me show you why this is a MUST-HAVE 👇\n\n{body}\n\n{cta}\n\n🔗 {url}\n\n{HASHTAGS}",
-        
-        "reels": f"{hook} 🔥\n\n👀 Watch till the end!\n\n🛒 {url}\n\n{HASHTAGS}",
-        
-        "video": f"🎬 {hook}\n\n{body}\n\nWatch the full collection above ⬆️\n\n🛒 Shop: {url}\n\n{HASHTAGS}",
-        
-        "text": f"Quick question for cat lovers 🐱\n\n{hook}\n\nWhich design speaks to YOU?\n\nCheck the full collection: {url}\n\n{HASHTAGS}",
-        
-        "link": f"{hook}\n\n{cta}\n\n{HASHTAGS}",
-        
-        "story": f"🔥 NEW DROP! Tap to shop ⬆️"
-    }
+    hook = random.choice(HOOKS_EN.get(style, HOOKS_EN['funny']))
+    body = random.choice(BODIES_EN)
+    cta = random.choice(CTAS_EN)
     
-    return templates_dict.get(post_type, templates_dict["album"])
+    caption = (
+        f"{hook}\n\n"
+        f"{body}\n\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"{cta}\n"
+        f"━━━━━━━━━━━━━━━━━━━\n\n"
+        f"🛒 SHOP HERE 👇\n{url}\n\n"
+        f"{HASHTAGS}"
+    )
+    return caption
+
+
+def get_text_only_post():
+    """Text-only engagement post"""
+    questions = [
+        "🐱 Cat lovers! What's your cat's funniest habit? Tell me below! 👇",
+        "Quick poll: Stickers or T-shirts? Which do you collect? 💬",
+        "Drop a 🔥 if you love unique cat designs!",
+        "Tell me your cat's name and I'll suggest the perfect design! 🎨",
+    ]
+    return random.choice(questions) + f"\n\n{HASHTAGS}"
+
+
+def get_link_post(url):
+    """Link post with strong CTA"""
+    return (
+        f"🔥 NEW DROP ALERT! 🔥\n\n"
+        f"Check out our latest collection - 70+ products available!\n\n"
+        f"🛒 {url}\n\n"
+        f"{HASHTAGS}"
+    )
