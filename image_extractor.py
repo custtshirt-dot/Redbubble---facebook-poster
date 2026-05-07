@@ -1,29 +1,29 @@
 """
-🖼️ استخراج وترتيب صور المنتجات
+🖼️ Image Extractor for Redbubble
 """
-import requests
 import re
+import requests
 from config import HEADERS, PRIORITY_PRODUCTS, PRODUCT_ORDER
 
 
 def extract_all_images(url):
-    """استخراج كل الصور الحقيقية من صفحة Redbubble"""
-    print("🔍 Extracting product images...")
+    """Extract all real product images from Redbubble"""
+    print(f"🔍 Fetching: {url}")
     try:
-        r = requests.get(url, headers=HEADERS, timeout=20)
+        r = requests.get(url, headers=HEADERS, timeout=30)
         html = r.text
         pattern = re.compile(r'https://ih1\.redbubble\.net/image\.[^"\']+\.jpg')
         all_images = pattern.findall(html)
-        unique_images = list(dict.fromkeys(all_images))
-        print(f"✅ Found {len(unique_images)} unique images")
-        return unique_images
+        unique = list(dict.fromkeys(all_images))
+        print(f"✅ Found {len(unique)} unique product images")
+        return unique
     except Exception as e:
         print(f"❌ Error: {e}")
         return []
 
 
 def detect_product_type(image_url):
-    """تحديد نوع المنتج من الرابط"""
+    """Detect product type from image URL"""
     url_lower = image_url.lower()
     for product in PRODUCT_ORDER:
         if product in url_lower:
@@ -31,13 +31,22 @@ def detect_product_type(image_url):
     return 'other'
 
 
-def smart_sort_images(images):
-    """ترتيب ذكي: الأولوية في الأول + منع التكرار المتتالي"""
+def smart_sort_images(images, max_images=30):
+    """
+    Smart sorting:
+    1. Priority products first (stickers, postcards - your best sellers)
+    2. Interleave to prevent same product type appearing consecutively
+    """
+    if not images:
+        return []
+    
+    # Group by type
     grouped = {}
     for img in images:
         ptype = detect_product_type(img)
         grouped.setdefault(ptype, []).append(img)
     
+    # Separate priority from rest
     priority_imgs = []
     other_imgs = []
     
@@ -49,8 +58,8 @@ def smart_sort_images(images):
     for ptype, imgs in grouped.items():
         other_imgs.extend(imgs)
     
+    # Interleave to avoid duplicates next to each other
     def interleave(imgs):
-        """خلط ذكي لمنع التكرار"""
         by_type = {}
         for img in imgs:
             t = detect_product_type(img)
@@ -66,5 +75,6 @@ def smart_sort_images(images):
         return result
     
     final = interleave(priority_imgs) + interleave(other_imgs)
+    
     print(f"🎯 Sorted: {len(priority_imgs)} priority + {len(other_imgs)} others")
-    return final
+    return final[:max_images]
