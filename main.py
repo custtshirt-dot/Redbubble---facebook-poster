@@ -1,200 +1,155 @@
 """
-🚀 Redbubble Auto Publisher Pro
-Main entry point - publish all content types
+🚀 MAIN - Redbubble Auto Poster
 """
 import sys
 import time
-from image_extractor import extract_all_images, smart_sort_images
-from ai_generator import generate_content
-from facebook_publisher import (
-    post_album, post_single_photo, post_carousel,
-    post_video, post_reels, post_text_only,
-    post_link, post_story_photo
+from config import (
+    validate_config, REDBUBBLE_URL, POST_TYPE, MAX_IMAGES
 )
-from video_creator import create_reels, create_video_slideshow
+from image_extractor import extract_all_images, smart_sort_images
+from ai_generator import generate_ai_caption, generate_design_hint
+from facebook_publisher import (
+    post_album, post_single_photo, post_text_only,
+    post_link, post_video, post_reels
+)
+from video_creator import create_slideshow_video, create_reels_video
+from templates import get_text_only_post, get_link_post
 
 
-def print_banner():
-    print("\n" + "=" * 80)
-    print("    🚀 REDBUBBLE AUTO PUBLISHER PRO - ALL CONTENT TYPES")
-    print("    💎 Powered by Groq AI + MoviePy")
-    print("=" * 80)
+def run_album_post(images, url, design_hint):
+    """Album post with all images"""
+    caption = generate_ai_caption('album', url, design_hint)
+    result = post_album(images, caption)
+    return result
 
 
-def get_url_from_user():
-    """صندوق إدخال الرابط"""
-    print("\n" + "╔" + "═" * 78 + "╗")
-    print("║" + " " * 20 + "📦 PASTE YOUR REDBUBBLE URL HERE" + " " * 26 + "║")
-    print("╚" + "═" * 78 + "╝")
-    print("\n┌" + "─" * 78 + "┐")
-    url = input("│ 🔗 URL: ").strip()
-    print("└" + "─" * 78 + "┘\n")
-    return url
-
-
-def show_menu():
-    print("\n" + "=" * 80)
-    print("📋 CHOOSE CONTENT TYPE TO PUBLISH:")
-    print("=" * 80)
-    print("  1️⃣  Album Post (multiple images)")
-    print("  2️⃣  Single Photo Post")
-    print("  3️⃣  Carousel Post (storytelling)")
-    print("  4️⃣  Reels (9:16 vertical video)")
-    print("  5️⃣  Video Slideshow (16:9)")
-    print("  6️⃣  Text-Only Post")
-    print("  7️⃣  Link Post (with preview)")
-    print("  8️⃣  Story (24h)")
-    print("  9️⃣  🔥 PUBLISH ALL TYPES (the bomb!)")
-    print("  0️⃣  Exit")
-    print("=" * 80)
-    return input("\n👉 Your choice: ").strip()
-
-
-def publish_album(url, images):
-    caption = generate_content("album", url)
-    result = post_album(images[:30], caption)
-    print_result("Album", result)
-
-
-def publish_single(url, images):
-    caption = generate_content("single", url)
+def run_single_post(images, url, design_hint):
+    """Single photo post"""
+    caption = generate_ai_caption('single', url, design_hint)
     result = post_single_photo(images[0], caption)
-    print_result("Single Photo", result)
+    return result
 
 
-def publish_carousel(url, images):
-    caption = generate_content("carousel", url)
-    result = post_carousel(images[:10], caption)
-    print_result("Carousel", result)
-
-
-def publish_reels(url, images):
-    video_path = create_reels(images[:15])
-    if video_path:
-        caption = generate_content("reels", url)
-        result = post_reels(video_path, caption)
-        print_result("Reels", result)
-
-
-def publish_video(url, images):
-    video_path = create_video_slideshow(images[:20])
-    if video_path:
-        caption = generate_content("video", url)
-        result = post_video(video_path, caption)
-        print_result("Video", result)
-
-
-def publish_text(url):
-    message = generate_content("text", url)
+def run_text_post(url):
+    """Text-only engagement post"""
+    message = get_text_only_post()
     result = post_text_only(message)
-    print_result("Text Post", result)
+    return result
 
 
-def publish_link(url):
-    message = generate_content("link", url)
-    result = post_link(url, message)
-    print_result("Link Post", result)
+def run_link_post(url):
+    """Link post"""
+    message = get_link_post(url)
+    result = post_link(message, url)
+    return result
 
 
-def publish_story(images):
-    result = post_story_photo(images[0])
-    print_result("Story", result)
-
-
-def publish_all(url, images):
-    """🔥 نشر كل أنواع المحتوى"""
-    print("\n" + "🔥" * 40)
-    print("  PUBLISHING ALL CONTENT TYPES - THE FULL BOMB! 💣")
-    print("🔥" * 40)
+def run_video_post(images, url, design_hint):
+    """Video post"""
+    video_path = create_slideshow_video(images[:10])
+    if not video_path:
+        return {'error': 'Video creation failed'}
     
-    actions = [
-        ("Album", lambda: publish_album(url, images)),
-        ("Single Photo", lambda: publish_single(url, images)),
-        ("Carousel", lambda: publish_carousel(url, images)),
-        ("Text Post", lambda: publish_text(url)),
-        ("Link Post", lambda: publish_link(url)),
-        ("Story", lambda: publish_story(images)),
-        ("Video", lambda: publish_video(url, images)),
-        ("Reels", lambda: publish_reels(url, images)),
-    ]
-    
-    for name, action in actions:
-        try:
-            print(f"\n{'─' * 80}\n▶️  Publishing: {name}\n{'─' * 80}")
-            action()
-            time.sleep(5)  # تأخير بين البوستات لتجنب الـ rate limit
-        except Exception as e:
-            print(f"❌ {name} failed: {e}")
-    
-    print("\n" + "🎉" * 40)
-    print("  ALL CONTENT PUBLISHED SUCCESSFULLY! 🎉")
-    print("🎉" * 40)
+    caption = generate_ai_caption('video', url, design_hint)
+    result = post_video(video_path, caption)
+    return result
 
 
-def print_result(post_type, result):
-    if result and ('id' in result or 'post_id' in result):
-        post_id = result.get('id') or result.get('post_id')
-        print(f"\n✅ {post_type} published! ID: {post_id}")
-    else:
-        print(f"\n⚠️ {post_type} result: {result}")
+def run_reels_post(images, url, design_hint):
+    """Reels post"""
+    video_path = create_reels_video(images[:8])
+    if not video_path:
+        return {'error': 'Reels creation failed'}
+    
+    caption = generate_ai_caption('reels', url, design_hint)
+    result = post_reels(video_path, caption)
+    return result
+
+
+def run_all_types(images, url, design_hint):
+    """Run all post types one by one"""
+    print("\n" + "=" * 60)
+    print("🚀 RUNNING ALL POST TYPES")
+    print("=" * 60)
+    
+    results = {}
+    
+    print("\n[1/6] 📸 Album post...")
+    results['album'] = run_album_post(images, url, design_hint)
+    time.sleep(5)
+    
+    print("\n[2/6] 🖼️ Single photo...")
+    results['single'] = run_single_post(images, url, design_hint)
+    time.sleep(5)
+    
+    print("\n[3/6] 💬 Text post...")
+    results['text'] = run_text_post(url)
+    time.sleep(5)
+    
+    print("\n[4/6] 🔗 Link post...")
+    results['link'] = run_link_post(url)
+    time.sleep(5)
+    
+    print("\n[5/6] 🎬 Video post...")
+    results['video'] = run_video_post(images, url, design_hint)
+    time.sleep(5)
+    
+    print("\n[6/6] 🎥 Reels post...")
+    results['reels'] = run_reels_post(images, url, design_hint)
+    
+    return results
 
 
 def main():
-    print_banner()
+    # Validate configuration
+    validate_config()
     
-    # 📦 إدخال الرابط
-    url = get_url_from_user()
-    if not url:
-        print("❌ No URL provided.")
-        return
-    
-    # 🖼️ استخراج الصور
-    images = extract_all_images(url)
+    # Extract images
+    images = extract_all_images(REDBUBBLE_URL)
     if len(images) < 3:
-        print("❌ Not enough images found.")
-        return
+        print("❌ Not enough images found")
+        sys.exit(1)
     
-    # 🎯 ترتيب ذكي
-    images = smart_sort_images(images)
+    # Smart sort (priority products first)
+    sorted_images = smart_sort_images(images, MAX_IMAGES)
     
-    # 📋 القائمة
-    while True:
-        choice = show_menu()
-        
-        if choice == "1":
-            publish_album(url, images)
-        elif choice == "2":
-            publish_single(url, images)
-        elif choice == "3":
-            publish_carousel(url, images)
-        elif choice == "4":
-            publish_reels(url, images)
-        elif choice == "5":
-            publish_video(url, images)
-        elif choice == "6":
-            publish_text(url)
-        elif choice == "7":
-            publish_link(url)
-        elif choice == "8":
-            publish_story(images)
-        elif choice == "9":
-            publish_all(url, images)
-        elif choice == "0":
-            print("\n👋 Goodbye!")
-            break
-        else:
-            print("❌ Invalid choice")
-        
-        again = input("\n🔄 Publish another? (y/n): ").strip().lower()
-        if again != 'y':
-            break
+    # Detect design type from images
+    design_hint = generate_design_hint(' '.join(images[:3]))
+    print(f"🎨 Design detected: {design_hint}")
+    
+    # Run based on POST_TYPE
+    print(f"\n🎯 Running: {POST_TYPE.upper()}")
+    
+    if POST_TYPE == 'album':
+        result = run_album_post(sorted_images, REDBUBBLE_URL, design_hint)
+    elif POST_TYPE == 'single':
+        result = run_single_post(sorted_images, REDBUBBLE_URL, design_hint)
+    elif POST_TYPE == 'text':
+        result = run_text_post(REDBUBBLE_URL)
+    elif POST_TYPE == 'link':
+        result = run_link_post(REDBUBBLE_URL)
+    elif POST_TYPE == 'video':
+        result = run_video_post(sorted_images, REDBUBBLE_URL, design_hint)
+    elif POST_TYPE == 'reels':
+        result = run_reels_post(sorted_images, REDBUBBLE_URL, design_hint)
+    elif POST_TYPE == 'carousel':
+        result = run_album_post(sorted_images, REDBUBBLE_URL, design_hint)
+    elif POST_TYPE == 'all':
+        result = run_all_types(sorted_images, REDBUBBLE_URL, design_hint)
+    else:
+        print(f"❌ Unknown post type: {POST_TYPE}")
+        sys.exit(1)
+    
+    # Print result
+    print("\n" + "=" * 60)
+    if isinstance(result, dict) and 'id' in result:
+        print(f"🎉 SUCCESS! Post ID: {result['id']}")
+    elif isinstance(result, dict) and 'error' in result:
+        print(f"❌ Error: {result['error']}")
+    else:
+        print(f"📊 Result: {result}")
+    print("=" * 60)
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("\n\n👋 Stopped by user")
-    except Exception as e:
-        print(f"\n❌ Fatal error: {e}")
-        sys.exit(1)
+    main()
