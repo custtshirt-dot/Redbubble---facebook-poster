@@ -1,0 +1,32 @@
+# Environment variables (CRITICAL - DO NOT REMOVE)
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated content
+generated_videos/
+temp/
+*.mp4
+*.log
+
+# Secrets
+secrets/
+credentials/
+*.key
