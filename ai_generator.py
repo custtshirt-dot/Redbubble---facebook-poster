@@ -1,7 +1,7 @@
 """
 🤖 AI Caption Generator using Groq
 """
-from groq import Groq
+import os
 from config import GROQ_API_KEY, LANGUAGE, STYLE
 from templates import get_template_caption, HASHTAGS
 import random
@@ -9,13 +9,21 @@ import random
 client = None
 if GROQ_API_KEY:
     try:
+        # Fix for proxies issue in some environments
+        os.environ.pop('HTTP_PROXY', None)
+        os.environ.pop('HTTPS_PROXY', None)
+        os.environ.pop('http_proxy', None)
+        os.environ.pop('https_proxy', None)
+        
+        from groq import Groq
         client = Groq(api_key=GROQ_API_KEY)
         print("✅ Groq AI initialized")
     except Exception as e:
         print(f"⚠️ Groq init failed: {e}")
+        client = None
 
 
-def generate_ai_caption(post_type='album', url='', design_hint='cat design'):
+def generate_ai_caption(post_type='album', url='', design_hint='unique design'):
     """Generate caption using Groq AI"""
     
     if not client:
@@ -57,14 +65,14 @@ Structure:
 5. End with: 🛒 SHOP: {url}
 6. Add these hashtags at the end: {HASHTAGS}
 
-Make it feel authentic, not salesy. Optimize for Facebook algorithm (engagement, comments, shares).
+Make it feel authentic, not salesy. Optimize for Facebook algorithm.
 Keep total under 500 words. Use line breaks for readability."""
 
     try:
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": "You are an expert Facebook marketing copywriter that creates viral, high-converting posts."},
+                {"role": "system", "content": "You are an expert Facebook marketing copywriter."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.9,
@@ -89,4 +97,7 @@ def generate_design_hint(image_url):
     if 'funny' in url_lower: hints.append('humor')
     if 'horror' in url_lower or 'spooky' in url_lower: hints.append('horror/spooky')
     if 'retro' in url_lower: hints.append('retro')
+    if 'monster' in url_lower: hints.append('monsters')
+    if 'neon' in url_lower: hints.append('neon designs')
+    if 'evil' in url_lower: hints.append('edgy')
     return ', '.join(hints) if hints else 'unique designs'
