@@ -37,7 +37,8 @@ HEADERS = {
 # ============================================================
 # 🎯 PRODUCT PRIORITY (sales data from your screenshot)
 # ============================================================
-PRIORITY_PRODUCTS = ['t-shirt', 'hoodie', 'mug', 'sticker', 'holographic']
+
+PRIORITY_PRODUCTS = ['classic-tshirt', 't-shirt', 'mug', 'sticker', 'holographic']
 
 PRODUCT_ORDER = [
     'sticker', 'postcard', 'magnet', 'pin', 'mug', 'tshirt', 't-shirt',
