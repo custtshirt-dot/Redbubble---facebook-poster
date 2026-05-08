@@ -6,22 +6,21 @@ import os
 import sys
 from dotenv import load_dotenv
 
-# Load .env file if exists (for local development)
 load_dotenv()
 
 # ============================================================
-# 🔒 SECRETS (from GitHub Secrets or .env)
+# 🔒 SECRETS
 # ============================================================
 FB_PAGE_ID = os.getenv('FB_PAGE_ID')
 FB_TOKEN = os.getenv('FB_TOKEN')
 GROQ_API_KEY = os.getenv('GROQ_API_KEY')
 
 # ============================================================
-# 📝 USER INPUTS (from GitHub Actions)
+# 📝 USER INPUTS
 # ============================================================
 REDBUBBLE_URL = os.getenv('REDBUBBLE_URL', '').strip()
 POST_TYPE = os.getenv('POST_TYPE', 'album').lower()
-MAX_IMAGES = int(os.getenv('MAX_IMAGES', '20'))
+MAX_IMAGES = int(os.getenv('MAX_IMAGES', '10'))
 LANGUAGE = os.getenv('LANGUAGE', 'english').lower()
 STYLE = os.getenv('STYLE', 'mixed').lower()
 
@@ -35,27 +34,58 @@ HEADERS = {
 }
 
 # ============================================================
-# 🎯 PRODUCT PRIORITY (sales data from your screenshot)
+# 🎯 PRODUCT PRIORITY
+# كل منتج هيظهر مرة واحدة بس - بالترتيب ده
 # ============================================================
+PRIORITY_PRODUCTS = [
+    't-shirt',      # 1. تيشيرت - الأوضح والأكتر مبيعاً
+    'mug',          # 2. ماج - هدية مثالية
+    'hoodie',       # 3. هودي
+    'sticker',      # 4. ستيكر
+    'holographic',  # 5. هولوجرافيك ستيكر
+    'tote',         # 6. توت باج
+    'phone-case',   # 7. كفر موبايل
+    'art-board',    # 8. آرت برينت
+    'magnet',       # 9. ماجنيت
+    'postcard',     # 10. بوستكارد
+]
 
-PRIORITY_PRODUCTS = ['classic-tshirt', 't-shirt', 'mug', 'sticker', 'holographic']
+# ============================================================
+# 🚫 منتجات ممنوعة - مش هتظهر نهائياً
+# ============================================================
+EXCLUDED_PRODUCTS = [
+    'pin',
+    'kids',
+    'baby',
+    'mask',
+    'mat',
+]
 
+# ============================================================
+# 🖼️ منع التكرار
+# ============================================================
+ONE_IMAGE_PER_PRODUCT = True
+MAX_SAME_PRODUCT = 1
+
+# ============================================================
+# 📦 ترتيب باقي المنتجات
+# ============================================================
 PRODUCT_ORDER = [
-    'sticker', 'postcard', 'magnet', 'pin', 'mug', 'tshirt', 't-shirt',
-    'hoodie', 'tank', 'pullover', 'sweatshirt', 'long-sleeve', 'baseball',
+    't-shirt', 'mug', 'hoodie', 'sticker', 'holographic',
+    'tote', 'phone-case', 'art-board', 'magnet', 'postcard',
+    'pullover', 'sweatshirt', 'long-sleeve', 'baseball',
     'poster', 'print', 'canvas', 'metal-print', 'photographic-print',
-    'tote', 'bag', 'backpack', 'pouch', 'phone-case', 'iphone', 'samsung',
+    'bag', 'backpack', 'pouch', 'iphone', 'samsung',
     'laptop', 'notebook', 'journal', 'spiral', 'hardcover',
     'pillow', 'throw', 'blanket', 'duvet', 'mounted', 'tapestry',
-    'apron', 'socks', 'leggings', 'scarf', 'mask', 'cap', 'hat',
-    'water-bottle', 'travel-mug', 'coaster', 'clock'
+    'apron', 'socks', 'leggings', 'scarf', 'cap', 'hat',
+    'water-bottle', 'travel-mug', 'coaster', 'clock', 'tank',
 ]
 
 # ============================================================
 # ✅ VALIDATION
 # ============================================================
 def validate_config():
-    """Check that required settings exist"""
     missing = []
     if not FB_PAGE_ID:
         missing.append('FB_PAGE_ID')
@@ -63,14 +93,14 @@ def validate_config():
         missing.append('FB_TOKEN')
     if not REDBUBBLE_URL:
         missing.append('REDBUBBLE_URL')
-    
+
     if missing:
         print(f"❌ Missing required variables: {', '.join(missing)}")
         sys.exit(1)
-    
+
     if not GROQ_API_KEY:
         print("⚠️ Warning: GROQ_API_KEY not set. Will use template captions.")
-    
+
     print(f"""
 ╔══════════════════════════════════════════════════╗
 ║  🚀 REDBUBBLE AUTO POSTER - Configuration       ║
@@ -81,6 +111,7 @@ def validate_config():
 ║  🌍 Language:   {LANGUAGE}
 ║  🎨 Style:      {STYLE}
 ║  🤖 AI:         {'Enabled (Groq)' if GROQ_API_KEY else 'Disabled (Templates)'}
+║  🚫 No duplicates: {ONE_IMAGE_PER_PRODUCT}
 ╚══════════════════════════════════════════════════╝
 """)
     return True
