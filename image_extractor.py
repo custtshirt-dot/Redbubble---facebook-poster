@@ -31,50 +31,53 @@ def detect_product_type(image_url):
     return 'other'
 
 
-def smart_sort_images(images, max_images=30):
+def smart_sort_images(images, max_images=10):
     """
-    Smart sorting:
-    1. Priority products first (stickers, postcards - your best sellers)
-    2. Interleave to prevent same product type appearing consecutively
+    كل منتج صورة واحدة بس - لا تكرار نهائياً
     """
     if not images:
         return []
-    
-    # Group by type
+
+    # الخطوة 1: جمّع الصور حسب نوع المنتج
     grouped = {}
     for img in images:
         ptype = detect_product_type(img)
         grouped.setdefault(ptype, []).append(img)
-    
-    # Separate priority from rest
-    priority_imgs = []
-    other_imgs = []
-    
-    for ptype in PRIORITY_PRODUCTS:
-        if ptype in grouped:
-            priority_imgs.extend(grouped[ptype])
-            del grouped[ptype]
-    
+
+    print(f"📦 Product types found: {list(grouped.keys())}")
+
+    # الخطوة 2: خذ صورة واحدة بس من كل نوع
+    one_per_type = {}
     for ptype, imgs in grouped.items():
-        other_imgs.extend(imgs)
-    
-    # Interleave to avoid duplicates next to each other
-    def interleave(imgs):
-        by_type = {}
-        for img in imgs:
-            t = detect_product_type(img)
-            by_type.setdefault(t, []).append(img)
-        
-        result = []
-        while any(by_type.values()):
-            for t in list(by_type.keys()):
-                if by_type[t]:
-                    result.append(by_type[t].pop(0))
-                else:
-                    del by_type[t]
-        return result
-    
-    final = interleave(priority_imgs) + interleave(other_imgs)
-    
-    print(f"🎯 Sorted: {len(priority_imgs)} priority + {len(other_imgs)} others")
+        one_per_type[ptype] = imgs[0]
+
+    # الخطوة 3: رتّب حسب PRIORITY_PRODUCTS أولاً
+    final = []
+
+    for ptype in PRIORITY_PRODUCTS:
+        if ptype in one_per_type:
+            final.append(one_per_type[ptype])
+            del one_per_type[ptype]
+        if len(final) >= max_images:
+            break
+
+    # باقي المنتجات حسب PRODUCT_ORDER
+    if len(final) < max_images:
+        for ptype in PRODUCT_ORDER:
+            if ptype in one_per_type:
+                final.append(one_per_type[ptype])
+                del one_per_type[ptype]
+            if len(final) >= max_images:
+                break
+
+    # أي منتج متبقي
+    if len(final) < max_images:
+        for img in one_per_type.values():
+            final.append(img)
+            if len(final) >= max_images:
+                break
+
+    print(f"🎯 Final: {len(final)} images - one per product type")
+    print(f"📋 Order: {[detect_product_type(img) for img in final]}")
+
     return final[:max_images]
