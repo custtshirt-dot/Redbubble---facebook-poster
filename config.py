@@ -20,7 +20,7 @@ GROQ_API_KEY = os.getenv('GROQ_API_KEY')
 # ============================================================
 REDBUBBLE_URL = os.getenv('REDBUBBLE_URL', '').strip()
 POST_TYPE = os.getenv('POST_TYPE', 'album').lower()
-MAX_IMAGES = int(os.getenv('MAX_IMAGES', '10'))
+MAX_IMAGES = int(os.getenv('MAX_IMAGES', '30'))
 LANGUAGE = os.getenv('LANGUAGE', 'english').lower()
 STYLE = os.getenv('STYLE', 'mixed').lower()
 
