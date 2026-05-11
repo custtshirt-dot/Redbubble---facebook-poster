@@ -82,13 +82,19 @@ def get_post_type_for_this_run() -> str:
 
 def run_album_post(images, url, design_hint):
     caption = generate_ai_caption('album', url, design_hint)
-    result = post_album(images, caption)
 
+    # Facebook: 30 صورة كاملة
+    fb_images = images[:30]
+    print(f"\n📸 Facebook Album: {len(fb_images)} photos")
+    result = post_album(fb_images, caption)
+
+    # Instagram: حد أقصى 10 صور
     try:
         post_to_instagram(image_urls=images[:10], caption=caption, post_type='album')
     except Exception as e:
         print(f"⚠️ Instagram album failed: {e}")
 
+    # Pinterest
     try:
         post_to_pinterest(images, caption, url, design_hint)
     except Exception as e:
