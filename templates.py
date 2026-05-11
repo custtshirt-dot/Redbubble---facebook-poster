@@ -52,7 +52,7 @@ CTAS_EN = [
 ]
 
 # ══════════════════════════════════════════════════════════════
-# 🏷️ HASHTAGS - مقسمة حسب الكولكشن
+# 🏷️ HASHTAGS - حسب الكولكشن
 # ══════════════════════════════════════════════════════════════
 
 HASHTAGS_BY_COLLECTION = {
@@ -108,6 +108,13 @@ HASHTAGS_BY_COLLECTION = {
     ),
 }
 
+# للتوافق مع الكود القديم
+HASHTAGS = HASHTAGS_BY_COLLECTION['general']
+
+
+# ══════════════════════════════════════════════════════════════
+# 🔍 COLLECTION DETECTOR
+# ══════════════════════════════════════════════════════════════
 
 def detect_collection(url='', design_hint=''):
     """تحديد الكولكشن من الـ URL أو اسم التصميم"""
@@ -135,17 +142,19 @@ def get_hashtags(url='', design_hint=''):
     return HASHTAGS_BY_COLLECTION.get(collection, HASHTAGS_BY_COLLECTION['general'])
 
 
+# ══════════════════════════════════════════════════════════════
+# 📝 CAPTION GENERATORS
+# ══════════════════════════════════════════════════════════════
+
 def get_template_caption(style='mixed', url='', post_type='album', design_hint=''):
     """Generate a caption from templates"""
 
     if style == 'mixed':
         style = random.choice(['funny', 'emotional', 'hard_sell'])
 
-    hook = random.choice(HOOKS_EN.get(style, HOOKS_EN['funny']))
-    body = random.choice(BODIES_EN)
-    cta  = random.choice(CTAS_EN)
-
-    # الهاشتاقات الذكية حسب الكولكشن
+    hook     = random.choice(HOOKS_EN.get(style, HOOKS_EN['funny']))
+    body     = random.choice(BODIES_EN)
+    cta      = random.choice(CTAS_EN)
     hashtags = get_hashtags(url, design_hint)
 
     caption = (
