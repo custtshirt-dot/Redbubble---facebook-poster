@@ -1,24 +1,20 @@
 """
-📸 Instagram Poster v2
-Posts photos, videos, carousels & reels to Instagram
-via Facebook Graph API
+📸 Instagram Poster v3
+- صور + فيديو + ريلز
+- رفع فيديو مباشر بدون سيرفر خارجي
 """
 import requests
 import time
 import os
+import json
 
 INSTAGRAM_USER_ID = os.getenv('INSTAGRAM_USER_ID', '17841477368001153')
 INSTAGRAM_TOKEN   = os.getenv('INSTAGRAM_TOKEN', os.getenv('FB_TOKEN', ''))
-
 IG_API = f"https://graph.facebook.com/v19.0/{INSTAGRAM_USER_ID}"
 
 
-# ══════════════════════════════════════════════════════════════
-# 🔧 HELPERS
-# ══════════════════════════════════════════════════════════════
-
 def _publish(container_id):
-    """نشر أي container بعد إنشاؤه"""
+    """نشر container"""
     try:
         r = requests.post(
             f"{IG_API}/media_publish",
@@ -35,60 +31,76 @@ def _publish(container_id):
         return None
 
 
-def upload_video_to_public_url(video_path):
-    """
-    رفع الفيديو على سيرفر مؤقت عشان Instagram يقدر يوصله
-    بيستخدم transfer.sh (مجاني)
-    """
+def upload_video_transfer(video_path):
+    """رفع فيديو على transfer.sh"""
     try:
         filename = os.path.basename(video_path)
-        print(f"   📤 Uploading video to temp server...")
+        print(f"   📤 Uploading to transfer.sh...")
         with open(video_path, 'rb') as f:
             r = requests.put(
                 f"https://transfer.sh/{filename}",
                 data=f,
+                headers={'Max-Days': '1'},
                 timeout=120
             )
         if r.status_code == 200:
             url = r.text.strip()
-            print(f"   ✅ Video uploaded: {url}")
+            print(f"   ✅ Uploaded: {url}")
             return url
-        else:
-            print(f"   ❌ Upload failed: {r.status_code}")
-            return None
     except Exception as e:
-        print(f"   ❌ Upload exception: {e}")
-        return None
+        print(f"   ❌ transfer.sh failed: {e}")
+
+    # Fallback: 0x0.st
+    try:
+        print(f"   📤 Trying 0x0.st...")
+        with open(video_path, 'rb') as f:
+            r = requests.post(
+                'https://0x0.st',
+                files={'file': f},
+                timeout=120
+            )
+        if r.status_code == 200:
+            url = r.text.strip()
+            print(f"   ✅ Uploaded: {url}")
+            return url
+    except Exception as e:
+        print(f"   ❌ 0x0.st failed: {e}")
+
+    return None
 
 
-def check_container_status(container_id, max_wait=120):
-    """انتظار اكتمال معالجة الفيديو"""
-    print(f"   ⏳ Waiting for video processing...")
-    for i in range(max_wait // 10):
-        time.sleep(10)
+def wait_for_processing(container_id, max_wait=300):
+    """انتظار معالجة الفيديو"""
+    print(f"   ⏳ Processing video...")
+    for i in range(max_wait // 15):
+        time.sleep(15)
         try:
             r = requests.get(
                 f"https://graph.facebook.com/v19.0/{container_id}",
-                params={'fields': 'status_code', 'access_token': INSTAGRAM_TOKEN},
+                params={
+                    'fields': 'status_code,status',
+                    'access_token': INSTAGRAM_TOKEN
+                },
                 timeout=15
             )
-            status = r.json().get('status_code', '')
-            print(f"   Status: {status}")
+            data = r.json()
+            status = data.get('status_code', '')
+            print(f"   [{(i+1)*15}s] Status: {status}")
+
             if status == 'FINISHED':
                 return True
-            elif status == 'ERROR':
+            elif status in ['ERROR', 'EXPIRED']:
+                print(f"   ❌ Processing failed: {data.get('status', '')}")
                 return False
-        except:
-            pass
+        except Exception as e:
+            print(f"   ⚠️ Status check error: {e}")
+
+    print("   ❌ Timeout waiting for processing")
     return False
 
 
-# ══════════════════════════════════════════════════════════════
-# 📸 IMAGE POSTS
-# ══════════════════════════════════════════════════════════════
-
 def post_single_image(image_url, caption):
-    """نشر صورة واحدة"""
+    """صورة واحدة"""
     try:
         r = requests.post(
             f"{IG_API}/media",
@@ -99,22 +111,19 @@ def post_single_image(image_url, caption):
             },
             timeout=30
         )
-        result = r.json()
-        container_id = result.get('id')
-        if not container_id:
-            print(f"❌ IG Single Error: {result.get('error', {}).get('message', str(result))}")
+        cid = r.json().get('id')
+        if not cid:
+            print(f"❌ IG Single Error: {r.json()}")
             return None
-
         time.sleep(5)
-        return _publish(container_id)
-
+        return _publish(cid)
     except Exception as e:
         print(f"❌ IG Single exception: {e}")
         return None
 
 
 def post_carousel(image_urls, caption):
-    """نشر carousel بـ 10 صور"""
+    """Carousel - 10 صور"""
     try:
         children = []
         for img_url in image_urls[:10]:
@@ -127,10 +136,10 @@ def post_carousel(image_urls, caption):
                 },
                 timeout=30
             )
-            result = r.json()
-            if 'id' in result:
-                children.append(result['id'])
-            time.sleep(1)
+            cid = r.json().get('id')
+            if cid:
+                children.append(cid)
+            time.sleep(2)
 
         if not children:
             return None
@@ -145,68 +154,27 @@ def post_carousel(image_urls, caption):
             },
             timeout=30
         )
-        container_id = r.json().get('id')
-        if not container_id:
+        cid = r.json().get('id')
+        if not cid:
             return None
-
         time.sleep(5)
-        return _publish(container_id)
-
+        return _publish(cid)
     except Exception as e:
         print(f"❌ IG Carousel exception: {e}")
         return None
 
 
-# ══════════════════════════════════════════════════════════════
-# 🎬 VIDEO POSTS
-# ══════════════════════════════════════════════════════════════
-
-def post_video_to_ig(video_path, caption):
-    """نشر فيديو عادي على Instagram"""
-    try:
-        # رفع الفيديو على سيرفر مؤقت
-        video_url = upload_video_to_public_url(video_path)
-        if not video_url:
-            return None
-
-        # إنشاء container
-        r = requests.post(
-            f"{IG_API}/media",
-            data={
-                'media_type': 'VIDEO',
-                'video_url': video_url,
-                'caption': caption[:2200],
-                'access_token': INSTAGRAM_TOKEN
-            },
-            timeout=30
-        )
-        result = r.json()
-        container_id = result.get('id')
-        if not container_id:
-            print(f"❌ IG Video Error: {result.get('error', {}).get('message', str(result))}")
-            return None
-
-        # انتظار المعالجة
-        if not check_container_status(container_id):
-            print("❌ IG Video: Processing failed")
-            return None
-
-        return _publish(container_id)
-
-    except Exception as e:
-        print(f"❌ IG Video exception: {e}")
-        return None
-
-
 def post_reels_to_ig(video_path, caption):
-    """نشر Reels على Instagram"""
+    """Reels على Instagram"""
     try:
-        # رفع الفيديو على سيرفر مؤقت
-        video_url = upload_video_to_public_url(video_path)
+        # رفع الفيديو
+        video_url = upload_video_transfer(video_path)
         if not video_url:
+            print("❌ IG Reels: Video upload failed")
             return None
 
         # إنشاء Reels container
+        print("   📦 Creating Reels container...")
         r = requests.post(
             f"{IG_API}/media",
             data={
@@ -216,63 +184,88 @@ def post_reels_to_ig(video_path, caption):
                 'share_to_feed': 'true',
                 'access_token': INSTAGRAM_TOKEN
             },
-            timeout=30
+            timeout=60
         )
         result = r.json()
-        container_id = result.get('id')
-        if not container_id:
-            print(f"❌ IG Reels Error: {result.get('error', {}).get('message', str(result))}")
+        cid = result.get('id')
+
+        if not cid:
+            err = result.get('error', {}).get('message', str(result))
+            print(f"❌ IG Reels Container Error: {err}")
             return None
 
+        print(f"   ✅ Container created: {cid}")
+
         # انتظار المعالجة
-        if not check_container_status(container_id, max_wait=180):
+        if not wait_for_processing(cid, max_wait=300):
             print("❌ IG Reels: Processing failed")
             return None
 
-        return _publish(container_id)
+        # نشر
+        post_id = _publish(cid)
+        return post_id
 
     except Exception as e:
         print(f"❌ IG Reels exception: {e}")
         return None
 
 
-# ══════════════════════════════════════════════════════════════
-# 🚀 MAIN FUNCTION
-# ══════════════════════════════════════════════════════════════
+def post_video_to_ig(video_path, caption):
+    """فيديو عادي على Instagram"""
+    try:
+        video_url = upload_video_transfer(video_path)
+        if not video_url:
+            return None
+
+        print("   📦 Creating Video container...")
+        r = requests.post(
+            f"{IG_API}/media",
+            data={
+                'media_type': 'VIDEO',
+                'video_url': video_url,
+                'caption': caption[:2200],
+                'access_token': INSTAGRAM_TOKEN
+            },
+            timeout=60
+        )
+        cid = r.json().get('id')
+        if not cid:
+            print(f"❌ IG Video Error: {r.json()}")
+            return None
+
+        if not wait_for_processing(cid, max_wait=240):
+            return None
+
+        return _publish(cid)
+
+    except Exception as e:
+        print(f"❌ IG Video exception: {e}")
+        return None
+
 
 def post_to_instagram(image_urls=None, caption='', post_type='single',
                       video_path=None):
-    """
-    النشر على Instagram - كل الأنواع
-    post_type: single | album | video | reels
-    """
+    """النشر على Instagram - كل الأنواع"""
     if not INSTAGRAM_TOKEN:
         print("⚠️ INSTAGRAM_TOKEN not set - skipping Instagram")
         return None
 
-    if not INSTAGRAM_USER_ID:
-        print("⚠️ INSTAGRAM_USER_ID not set - skipping Instagram")
-        return None
-
     print(f"\n📸 Posting to Instagram ({post_type})...")
 
-    # ── Video / Reels ─────────────────────────────────────────
     if post_type == 'reels' and video_path:
         post_id = post_reels_to_ig(video_path, caption)
 
     elif post_type == 'video' and video_path:
         post_id = post_video_to_ig(video_path, caption)
 
-    # ── Album / Carousel ──────────────────────────────────────
     elif post_type == 'album' and image_urls and len(image_urls) > 1:
         post_id = post_carousel(image_urls[:10], caption)
 
-    # ── Single Image ──────────────────────────────────────────
     elif image_urls:
         post_id = post_single_image(image_urls[0], caption)
 
     else:
-        print("❌ No content provided for Instagram")
+        print("❌ No content provided")
         return None
 
     if post_id:
