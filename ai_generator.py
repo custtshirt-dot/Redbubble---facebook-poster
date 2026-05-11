@@ -145,6 +145,11 @@ Structure:
 5. End with: 🛒 SHOP: {url}
 6. Add these hashtags: {HASHTAGS}
 
+STRICT RULES - NEVER violate these:
+- NEVER mention discount codes, promo codes, coupon codes, or percentage discounts
+- NEVER write things like "Use code X", "10% off", "SAVE20", or any promotional codes
+- NEVER invent prices or fake offers
+
 Make it authentic and design-specific. Optimize for Facebook engagement.
 Keep total under 500 words."""
 
@@ -152,7 +157,7 @@ Keep total under 500 words."""
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": "You are an expert Facebook marketing copywriter. You ALWAYS write design-specific content."},
+                {"role": "system", "content": "You are an expert Facebook marketing copywriter. You ALWAYS write design-specific content. You NEVER include discount codes, promo codes, or coupon codes in any caption."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.9,
@@ -211,6 +216,8 @@ CRITICAL RULES:
 6. Reference the design theme: {design_hint}
 7. Make it ENERGETIC and ENGAGING
 8. NO labels like "Hook:" or "Body:" - just flowing speech
+9. NEVER mention discount codes, promo codes, coupon codes, or percentage discounts
+10. NEVER say things like "Use code X", "10% off", or any promotional codes
 
 Output ONLY the spoken text. Nothing else. No markdown. No labels."""
 
@@ -218,7 +225,7 @@ Output ONLY the spoken text. Nothing else. No markdown. No labels."""
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": "You write punchy, engaging video scripts for social media ads. Output only spoken words with no formatting."},
+                {"role": "system", "content": "You write punchy, engaging video scripts for social media ads. Output only spoken words with no formatting. Never mention discount codes or promo codes."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.9,
