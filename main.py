@@ -1,11 +1,30 @@
 """
-🚀 MAIN - Redbubble Auto Poster
-Supports: Facebook + Instagram (Photo/Video/Reels) + Pinterest
+🚀 MAIN - Redbubble Auto Poster (Smart Edition)
+- يختار التصميم الجاي تلقائياً من الستور
+- يفضّل التصاميم الجديدة
+- مش بيكرر نفس التصميم ورا بعضه
+- تنوع في نوع البوست في كل مرة
+- يدعم الإضافة اليدوية من manual_products.json
 """
+import os
 import sys
 import time
+import random
+
 from config import (
-    validate_config, REDBUBBLE_URL, POST_TYPE, MAX_IMAGES
+    validate_config,
+    REDBUBBLE_URL,          # اختياري - override يدوي
+    REDBUBBLE_STORE_URL,    # رابط الستور للسكان الأوتوماتيك
+    POST_TYPE,
+    MAX_IMAGES,
+    LANGUAGE,
+    STYLE,
+)
+from store_manager import (
+    get_next_product_to_post,
+    record_design_posted,
+    get_store_stats,
+    list_upcoming_designs,
 )
 from image_extractor import extract_all_images, smart_sort_images
 from ai_generator import (
@@ -20,59 +39,89 @@ from pinterest_poster import post_to_pinterest
 from video_creator import create_slideshow_video, create_reels_video
 from voice_generator import generate_voice, get_random_voice_style
 from templates import get_text_only_post, get_link_post
-from history_manager import is_duplicate, record_post, get_stats
+from history_manager import record_post, get_stats
 
 
 # ══════════════════════════════════════════════════════════════
-# POST FUNCTIONS
+# 🎲 SMART POST TYPE ROTATION (تنوع في المحتوى)
+# ══════════════════════════════════════════════════════════════
+
+# دوّرة من أنواع مختلفة عشان التنوع — ترتيب مدروس
+POST_TYPE_CYCLE = [
+    'album',   # ألبوم صور — أوسع انتشار
+    'single',  # صورة واحدة — تركيز
+    'album',   # ألبوم تاني
+    'link',    # رابط مباشر
+    'single',  # صورة واحدة
+    'album',   # ألبوم تاني
+    'video',   # فيديو — إنجيجمنت عالي
+    'album',   # ألبوم
+]
+
+
+def get_post_type_for_this_run() -> str:
+    """
+    اختيار نوع البوست الجاي بذكاء.
+    لو POST_TYPE=auto → يدور على الدوّرة
+    لو تحديد يدوي → يستخدمه
+    """
+    if POST_TYPE and POST_TYPE.lower() not in ('auto', ''):
+        return POST_TYPE.lower()
+
+    # استخدام index من environment variable
+    # يتحدث كل run في الـ workflow
+    idx = int(os.getenv('POST_ROTATION_INDEX', '0'))
+    chosen = POST_TYPE_CYCLE[idx % len(POST_TYPE_CYCLE)]
+    print(f"🎲 Auto post type (index {idx}): {chosen.upper()}")
+    return chosen
+
+
+# ══════════════════════════════════════════════════════════════
+# 📤 POST FUNCTIONS
 # ══════════════════════════════════════════════════════════════
 
 def run_album_post(images, url, design_hint):
     caption = generate_ai_caption('album', url, design_hint)
-
-    # Facebook album
     result = post_album(images, caption)
 
-    # Instagram carousel (10 صور بس)
-    post_to_instagram(
-        image_urls=images[:10],
-        caption=caption,
-        post_type='album'
-    )
+    try:
+        post_to_instagram(image_urls=images[:10], caption=caption, post_type='album')
+    except Exception as e:
+        print(f"⚠️ Instagram album failed: {e}")
 
-    # Pinterest
-    post_to_pinterest(images, caption, url, design_hint)
+    try:
+        post_to_pinterest(images, caption, url, design_hint)
+    except Exception as e:
+        print(f"⚠️ Pinterest failed: {e}")
 
     return result
 
 
 def run_single_post(images, url, design_hint):
     caption = generate_ai_caption('single', url, design_hint)
-
-    # Facebook
     result = post_single_photo(images[0], caption)
 
-    # Instagram single
-    post_to_instagram(
-        image_urls=images,
-        caption=caption,
-        post_type='single'
-    )
+    try:
+        post_to_instagram(image_urls=images, caption=caption, post_type='single')
+    except Exception as e:
+        print(f"⚠️ Instagram single failed: {e}")
 
-    # Pinterest
-    post_to_pinterest(images[:1], caption, url, design_hint)
+    try:
+        post_to_pinterest(images[:1], caption, url, design_hint)
+    except Exception as e:
+        print(f"⚠️ Pinterest failed: {e}")
 
     return result
-
-
-def run_text_post(url):
-    message = get_text_only_post()
-    return post_text_only(message)
 
 
 def run_link_post(url):
     message = get_link_post(url)
     return post_link(message, url)
+
+
+def run_text_post(url):
+    message = get_text_only_post()
+    return post_text_only(message)
 
 
 def run_video_post(images, url, design_hint):
@@ -91,20 +140,16 @@ def run_video_post(images, url, design_hint):
         output_name='slideshow.mp4'
     )
     if not video_path:
-        return {'error': 'Video creation failed'}
+        print("⚠️ Video creation failed, falling back to album post")
+        return run_album_post(images, url, design_hint)
 
     caption = generate_ai_caption('video', url, design_hint)
-
-    # Facebook video
     result = post_video(video_path, caption)
 
-    # Instagram video ✅ جديد
-    print("\n📸 Posting video to Instagram...")
-    post_to_instagram(
-        caption=caption,
-        post_type='video',
-        video_path=video_path
-    )
+    try:
+        post_to_instagram(caption=caption, post_type='video', video_path=video_path)
+    except Exception as e:
+        print(f"⚠️ Instagram video failed: {e}")
 
     return result
 
@@ -112,12 +157,9 @@ def run_video_post(images, url, design_hint):
 def run_reels_post(images, url, design_hint):
     print("\n🎬 Generating Reels with voice...")
     script = generate_video_script(design_hint, url)
-    print(f"📜 Script: {script[:120]}...")
 
     voice_style = get_random_voice_style()
     voice_path = generate_voice(script, 'reels_voice.mp3', voice_style)
-    if not voice_path:
-        print("⚠️ Voice failed, reels will be silent")
 
     video_path = create_reels_video(
         images[:8],
@@ -125,113 +167,199 @@ def run_reels_post(images, url, design_hint):
         output_name='reels.mp4'
     )
     if not video_path:
-        return {'error': 'Reels creation failed'}
+        print("⚠️ Reels creation failed, falling back to album post")
+        return run_album_post(images, url, design_hint)
 
     caption = generate_ai_caption('reels', url, design_hint)
-
-    # Facebook reels
     result = post_reels(video_path, caption)
 
-    # Instagram reels ✅ جديد
-    print("\n📸 Posting reels to Instagram...")
-    post_to_instagram(
-        caption=caption,
-        post_type='reels',
-        video_path=video_path
-    )
+    try:
+        post_to_instagram(caption=caption, post_type='reels', video_path=video_path)
+    except Exception as e:
+        print(f"⚠️ Instagram reels failed: {e}")
 
     return result
 
 
-def run_all_types(images, url, design_hint):
-    print("\n" + "=" * 60)
-    print("🚀 RUNNING ALL POST TYPES")
-    print("=" * 60)
-    results = {}
+# ══════════════════════════════════════════════════════════════
+# 🔍 GET TARGET URL (الاختيار الذكي للتصميم)
+# ══════════════════════════════════════════════════════════════
 
-    print("\n[1/4] 📸 Album (FB + IG + Pinterest)...")
-    results['album'] = run_album_post(images, url, design_hint)
-    time.sleep(15)
+def get_target_url() -> dict:
+    """
+    اختيار التصميم اللي هيتنشر:
+    1. لو في REDBUBBLE_URL يدوي → استخدمه
+    2. لو في REDBUBBLE_STORE_URL → سكان الستور واختر الأذكى
+    3. لو ما فيش → خطأ
 
-    print("\n[2/4] 🖼️ Single (FB + IG)...")
-    results['single'] = run_single_post(images, url, design_hint)
-    time.sleep(15)
+    بيرجع: {'url': str, 'title': str, 'is_new': bool}
+    """
+    # ── Manual override ──────────────────────────────────────
+    if REDBUBBLE_URL and REDBUBBLE_URL.strip():
+        print(f"\n📌 Manual URL override: {REDBUBBLE_URL[:70]}")
+        return {
+            'url': REDBUBBLE_URL.strip(),
+            'title': 'Manual',
+            'is_new': False,
+        }
 
-    print("\n[3/4] 💬 Text (FB)...")
-    results['text'] = run_text_post(url)
-    time.sleep(15)
+    # ── Auto selection ───────────────────────────────────────
+    if not REDBUBBLE_STORE_URL:
+        print("❌ Neither REDBUBBLE_URL nor REDBUBBLE_STORE_URL is set!")
+        print("   Add REDBUBBLE_STORE_URL to your GitHub Secrets")
+        sys.exit(1)
 
-    print("\n[4/4] 🔗 Link (FB)...")
-    results['link'] = run_link_post(url)
+    print(f"\n🤖 Auto-selecting next design from store...")
+    product = get_next_product_to_post(REDBUBBLE_STORE_URL)
 
-    return results
+    if not product:
+        print("❌ No product found to post")
+        sys.exit(1)
+
+    return product
 
 
 # ══════════════════════════════════════════════════════════════
-# MAIN
+# 🖼️ EXTRACT IMAGES WITH FALLBACK (مع Fallback لتصميم تاني)
+# ══════════════════════════════════════════════════════════════
+
+def get_images_with_fallback(target: dict) -> tuple:
+    """
+    استخراج الصور من URL، لو ما فيش يجرب التصميم الجاي.
+    بيرجع: (images, url, title, is_new)
+    """
+    url = target['url']
+    title = target.get('title', '')
+    is_new = target.get('is_new', False)
+
+    print(f"\n🔍 Extracting images from:")
+    print(f"   {url[:80]}")
+
+    images = extract_all_images(url)
+
+    # لو ما لقيناش صور كافية → جرب التاني
+    if len(images) < 2 and not REDBUBBLE_URL:
+        print(f"⚠️ Not enough images ({len(images)}) — trying next design...")
+        next_product = get_next_product_to_post(REDBUBBLE_STORE_URL)
+        if next_product and next_product['url'] != url:
+            url = next_product['url']
+            title = next_product.get('title', '')
+            is_new = next_product.get('is_new', False)
+            images = extract_all_images(url)
+
+    if len(images) < 2:
+        print(f"❌ Not enough images ({len(images)}) even after fallback")
+        sys.exit(1)
+
+    return images, url, title, is_new
+
+
+# ══════════════════════════════════════════════════════════════
+# 🚀 MAIN
 # ══════════════════════════════════════════════════════════════
 
 def main():
     validate_config()
+
     print(get_stats())
+    print(get_store_stats())
 
-    if is_duplicate(REDBUBBLE_URL, POST_TYPE):
-        print(f"\n🛑 STOPPED: Already posted recently")
-        sys.exit(0)
+    # ── اختيار التصميم ──────────────────────────────────────
+    target = get_target_url()
 
-    images = extract_all_images(REDBUBBLE_URL)
-    if len(images) < 3:
-        print("❌ Not enough images found")
-        sys.exit(1)
-
+    # ── استخراج الصور ───────────────────────────────────────
+    images, target_url, design_title, is_new = get_images_with_fallback(target)
     sorted_images = smart_sort_images(images, MAX_IMAGES)
-    design_hint = generate_design_hint(REDBUBBLE_URL, ' '.join(images[:5]))
 
-    print(f"🎨 Design: {design_hint}")
-    print(f"🎯 Type: {POST_TYPE.upper()}")
-    print(f"📱 Platforms: Facebook ✅ | Instagram ✅ | Pinterest ✅")
+    # ── تحليل التصميم بالـ AI ────────────────────────────────
+    design_hint = generate_design_hint(target_url, ' '.join(images[:5]))
 
-    # ── Router ────────────────────────────────────────────────
-    if POST_TYPE == 'album':
-        result = run_album_post(sorted_images, REDBUBBLE_URL, design_hint)
-    elif POST_TYPE == 'single':
-        result = run_single_post(sorted_images, REDBUBBLE_URL, design_hint)
-    elif POST_TYPE == 'carousel':
-        result = run_album_post(sorted_images, REDBUBBLE_URL, design_hint)
-    elif POST_TYPE == 'text':
-        result = run_text_post(REDBUBBLE_URL)
-    elif POST_TYPE == 'link':
-        result = run_link_post(REDBUBBLE_URL)
-    elif POST_TYPE == 'video':
-        result = run_video_post(sorted_images, REDBUBBLE_URL, design_hint)
-    elif POST_TYPE == 'reels':
-        result = run_reels_post(sorted_images, REDBUBBLE_URL, design_hint)
-    elif POST_TYPE == 'all':
-        result = run_all_types(sorted_images, REDBUBBLE_URL, design_hint)
+    # ── اختيار نوع البوست ───────────────────────────────────
+    active_post_type = get_post_type_for_this_run()
+
+    print(f"\n{'=' * 60}")
+    print(f"🎨 Design     : {design_hint}")
+    print(f"🔗 URL        : {target_url[:70]}")
+    print(f"🎯 Post Type  : {active_post_type.upper()}")
+    print(f"🆕 New Design : {'YES ✨' if is_new else 'No (repost)'}")
+    print(f"📸 Images     : {len(sorted_images)}")
+    print(f"🌍 Language   : {LANGUAGE}")
+    print(f"🎨 Style      : {STYLE}")
+    print('=' * 60)
+
+    # ── التوجيه لنوع البوست ─────────────────────────────────
+    result = None
+
+    if active_post_type in ('album', 'carousel'):
+        result = run_album_post(sorted_images, target_url, design_hint)
+
+    elif active_post_type == 'single':
+        result = run_single_post(sorted_images, target_url, design_hint)
+
+    elif active_post_type == 'link':
+        result = run_link_post(target_url)
+
+    elif active_post_type == 'text':
+        result = run_text_post(target_url)
+
+    elif active_post_type == 'video':
+        result = run_video_post(sorted_images, target_url, design_hint)
+
+    elif active_post_type == 'reels':
+        result = run_reels_post(sorted_images, target_url, design_hint)
+
+    elif active_post_type == 'all':
+        # كل الأنواع
+        results = {}
+        for ptype, fn in [
+            ('album', lambda: run_album_post(sorted_images, target_url, design_hint)),
+            ('single', lambda: run_single_post(sorted_images, target_url, design_hint)),
+            ('link', lambda: run_link_post(target_url)),
+        ]:
+            print(f"\n▶ Running {ptype}...")
+            results[ptype] = fn()
+            time.sleep(10)
+        result = results
     else:
-        print(f"❌ Unknown post type: {POST_TYPE}")
-        sys.exit(1)
+        result = run_album_post(sorted_images, target_url, design_hint)
 
-    # ── Results ───────────────────────────────────────────────
-    print("\n" + "=" * 60)
+    # ── تسجيل النتيجة ───────────────────────────────────────
+    print(f"\n{'=' * 60}")
+
     if isinstance(result, dict):
         if 'id' in result:
-            print(f"🎉 SUCCESS! Post ID: {result['id']}")
-            record_post(REDBUBBLE_URL, POST_TYPE, result['id'], design_hint)
-        elif POST_TYPE == 'all':
-            success = sum(1 for r in result.values()
-                         if isinstance(r, dict) and 'id' in r)
+            post_id = result['id']
+            print(f"🎉 SUCCESS! Post ID: {post_id}")
+            # تسجيل في الهيستوريين
+            record_post(target_url, active_post_type, post_id, design_hint)
+            record_design_posted(target_url, design_title or design_hint)
+
+        elif active_post_type == 'all':
+            success = sum(1 for r in result.values() if isinstance(r, dict) and 'id' in r)
             print(f"🎉 ALL DONE! {success}/{len(result)} succeeded")
             for ptype, res in result.items():
                 if isinstance(res, dict) and 'id' in res:
                     print(f"   ✅ {ptype}: {res['id']}")
-                    record_post(REDBUBBLE_URL, ptype, res['id'], design_hint)
+                    record_post(target_url, ptype, res['id'], design_hint)
                 else:
                     err = res.get('error', '?') if isinstance(res, dict) else '?'
                     print(f"   ❌ {ptype}: {err}")
+            record_design_posted(target_url, design_title or design_hint)
+
         elif 'error' in result:
             print(f"❌ Error: {result['error']}")
-    print("=" * 60)
+
+    # ── عرض التصاميم الجاية ──────────────────────────────────
+    upcoming = list_upcoming_designs(3)
+    if upcoming:
+        print(f"\n🔮 Next designs in queue:")
+        for i, d in enumerate(upcoming, 1):
+            title = d.get('title', 'Unknown')[:50]
+            count = d.get('post_count', 0)
+            status = '🆕' if count == 0 else f'🔄 x{count}'
+            print(f"   {i}. {status} {title}")
+
+    print('=' * 60)
 
 
 if __name__ == "__main__":
