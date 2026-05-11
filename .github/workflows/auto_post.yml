@@ -1,38 +1,41 @@
-name: 🚀 Auto Post to Facebook + Instagram + Pinterest
+name: 🚀 Auto Post Every 3 Hours — Redbubble Smart Poster
 
+# ══════════════════════════════════════════════════════════════
+# ⏰ SCHEDULE: كل 3 ساعات أوتوماتيك
+# + إمكانية التشغيل اليدوي مع كل الخيارات
+# ══════════════════════════════════════════════════════════════
 on:
+  # ── تشغيل أوتوماتيك كل 3 ساعات ──
+  schedule:
+    - cron: '0 */3 * * *'   # كل 3 ساعات (12AM, 3AM, 6AM, 9AM, 12PM, 3PM, 6PM, 9PM UTC)
+
+  # ── تشغيل يدوي مع خيارات ──
   workflow_dispatch:
     inputs:
       redbubble_url:
-        description: '🔗 Redbubble Collection URL'
-        required: true
+        description: '🔗 رابط منتج يدوي (اختياري — لو فاضي هيسكان الستور)'
+        required: false
         type: string
         default: ''
 
       post_type:
-        description: '📝 Post Type'
-        required: true
+        description: '📝 نوع البوست'
+        required: false
         type: choice
-        default: 'album'
+        default: 'auto'
         options:
+          - auto      # ← الأذكى: يدور تلقائي
           - album
           - single
-          - carousel
-          - reels
-          - video
-          - text
           - link
+          - video
+          - reels
+          - text
           - all
 
-      max_images:
-        description: '📸 Max Images (1-30)'
-        required: false
-        type: string
-        default: '30'
-
       language:
-        description: '🌍 Caption Language'
-        required: true
+        description: '🌍 لغة الكابشن'
+        required: false
         type: choice
         default: 'english'
         options:
@@ -41,8 +44,8 @@ on:
           - both
 
       style:
-        description: '🎨 Caption Style'
-        required: true
+        description: '🎨 أسلوب الكابشن'
+        required: false
         type: choice
         default: 'mixed'
         options:
@@ -51,61 +54,149 @@ on:
           - hard_sell
           - mixed
 
+      force_post:
+        description: '⚡ نشر حتى لو اتنشر قريباً (تجاهل cooldown)'
+        required: false
+        type: boolean
+        default: false
+
+# ══════════════════════════════════════════════════════════════
+# 🔒 PERMISSIONS (مطلوبة لحفظ الهيستوري في الريبو)
+# ══════════════════════════════════════════════════════════════
+permissions:
+  contents: write
+
 jobs:
-  post:
+  smart-post:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
+      # ── Checkout ──────────────────────────────────────────
       - name: 📥 Checkout code
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 1
 
-      - name: 🐍 Setup Python
+      # ── Python Setup ──────────────────────────────────────
+      - name: 🐍 Setup Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: 📦 Cache dependencies
+      # ── Cache pip ─────────────────────────────────────────
+      - name: 📦 Cache pip dependencies
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
+      # ── Install ───────────────────────────────────────────
       - name: 📦 Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 🚀 Run the bot
+      # ── حساب POST_ROTATION_INDEX ──────────────────────────
+      # عشان التنوع في كل run — بيتحسب من وقت التشغيل
+      - name: 🎲 Calculate post rotation index
+        id: rotation
+        run: |
+          # استخدام الساعة الحالية كـ index للدوّرة
+          HOUR=$(date +%H | sed 's/^0//')  # ساعة بدون صفر في الأول
+          IDX=$((HOUR / 3))               # 0,1,2,3,4,5,6,7 (8 قيم لـ 8 في اليوم)
+          echo "index=$IDX" >> $GITHUB_OUTPUT
+          echo "🎲 Post rotation index: $IDX"
+
+      # ── Run the Bot ───────────────────────────────────────
+      - name: 🚀 Run Smart Poster
         env:
           # 🔒 Facebook
           FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
-          FB_TOKEN: ${{ secrets.FB_TOKEN }}
+          FB_TOKEN:   ${{ secrets.FB_TOKEN }}
 
           # 🔒 Instagram
           INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
-          INSTAGRAM_TOKEN: ${{ secrets.INSTAGRAM_TOKEN }}
+          INSTAGRAM_TOKEN:   ${{ secrets.INSTAGRAM_TOKEN }}
 
           # 🔒 Pinterest
-          PINTEREST_TOKEN: ${{ secrets.PINTEREST_TOKEN }}
+          PINTEREST_TOKEN:    ${{ secrets.PINTEREST_TOKEN }}
           PINTEREST_BOARD_ID: ${{ secrets.PINTEREST_BOARD_ID }}
           PINTEREST_USERNAME: ${{ secrets.PINTEREST_USERNAME }}
 
           # 🔒 AI
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
-          # 📝 Inputs
-          REDBUBBLE_URL: ${{ inputs.redbubble_url }}
-          POST_TYPE: ${{ inputs.post_type }}
-          MAX_IMAGES: ${{ inputs.max_images }}
-          LANGUAGE: ${{ inputs.language }}
-          STYLE: ${{ inputs.style }}
+          # 🏪 Redbubble Store (رابط الستور — حطه في Secrets)
+          REDBUBBLE_STORE_URL: ${{ secrets.REDBUBBLE_STORE_URL }}
+
+          # 📌 Manual URL override (من workflow_dispatch بس)
+          REDBUBBLE_URL: ${{ inputs.redbubble_url || '' }}
+
+          # 📝 Post settings
+          POST_TYPE:  ${{ inputs.post_type || 'auto' }}
+          LANGUAGE:   ${{ inputs.language || 'english' }}
+          STYLE:      ${{ inputs.style || 'mixed' }}
+          MAX_IMAGES: '30'
+
+          # 🎲 Rotation index
+          POST_ROTATION_INDEX: ${{ steps.rotation.outputs.index }}
+
+          # ⚡ Force post (تجاهل cooldown)
+          IGNORE_DUPLICATES: ${{ inputs.force_post == 'true' && 'true' || 'false' }}
 
         run: python main.py
 
-      - name: ✅ Success
-        if: success()
-        run: echo "🎉 Posted to Facebook + Instagram + Pinterest!"
+      # ── حفظ الهيستوري في الريبو ───────────────────────────
+      # ده المهم: بيحفظ الهيستوري عشان في الـ run الجاي يعرف اتنشر إيه
+      - name: 💾 Save history files to repository
+        if: always()   # حتى لو فشل البوست — نحفظ اللي اكتشفناه
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
 
-      - name: ❌ Failure
+          # Add history files (هيتعملوا بعد أول run)
+          git add designs_history.json 2>/dev/null || true
+          git add post_history.json    2>/dev/null || true
+          git add manual_products.json 2>/dev/null || true
+
+          # Commit لو في تغيير
+          if git diff --staged --quiet; then
+            echo "ℹ️ No history changes to commit"
+          else
+            git commit -m "📊 Update posting history [skip ci]"
+            git push
+            echo "✅ History saved to repository!"
+          fi
+
+      # ── Success/Failure Summary ───────────────────────────
+      - name: ✅ Post Summary (Success)
+        if: success()
+        run: |
+          echo "🎉 Posted successfully!"
+          echo "📊 Check designs_history.json for details"
+          if [ -f designs_history.json ]; then
+            python -c "
+          import json
+          with open('designs_history.json') as f:
+              h = json.load(f)
+          total = h.get('total_posts', 0)
+          designs = len(h.get('designs', {}))
+          last = h.get('last_posted_url', 'N/A')
+          print(f'Total posts: {total}')
+          print(f'Designs tracked: {designs}')
+          print(f'Last posted: {last[:80]}')
+          "
+          fi
+
+      - name: ❌ Post Summary (Failure)
         if: failure()
-        run: echo "⚠️ Something went wrong. Check logs above."
+        run: |
+          echo "⚠️ Something went wrong. Check logs above."
+          echo "Common issues:"
+          echo "  1. FB_TOKEN expired — refresh your Facebook token"
+          echo "  2. REDBUBBLE_STORE_URL not set in Secrets"
+          echo "  3. Store page changed structure — check image_extractor.py"
