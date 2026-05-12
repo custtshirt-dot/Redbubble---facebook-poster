@@ -1,32 +1,38 @@
-# Environment variables (CRITICAL - DO NOT REMOVE)
-.env
-*.env
-!.env.example
+# ══════════════════════════════════════════════════
+# 🔒 HISTORY FILES — لا تعدّل أو تـ push عليهم يدوياً
+# الـ workflow بيتعامل معاهم أوتوماتيك بـ git add -f
+# ══════════════════════════════════════════════════
+designs_history.json
+post_history.json
 
-# Python
+# ── Python ──
 __pycache__/
 *.py[cod]
-*$py.class
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# ── Virtual Environments ──
+.venv/
 venv/
 env/
-.venv/
 
-# IDE
-.vscode/
-.idea/
-*.swp
+# ── Local secrets ──
+.env
 
-# OS
+# ── Media files (generated) ──
+*.mp4
+*.mp3
+*.wav
+slideshow.mp4
+reels.mp4
+video_voice.mp3
+reels_voice.mp3
+
+# ── OS ──
 .DS_Store
 Thumbs.db
-
-# Generated content
-generated_videos/
-temp/
-*.mp4
-*.log
-
-# Secrets
-secrets/
-credentials/
-*.key
+desktop.ini
