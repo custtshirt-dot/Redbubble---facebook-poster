@@ -297,33 +297,57 @@ def get_next_product_to_post(store_url: str = None) -> dict | None:
             if url_key(d['url']) not in manual_urls:
                 all_designs.append(d)
 
-    if not all_designs:
-        print("❌ No designs found — add store URL or manual products")
-        return None
+    # ── 3. لو السكان فاشل → ارجع للهيستوري المحفوظ ────────────
+    store_scan_failed = not all_designs
+    if store_scan_failed:
+        history = load_designs_history()
+        cached = list(history.get('designs', {}).values())
 
-    # ── 3. تسجيل التصاميم الجديدة ────────────────────────────
-    new_count = _register_designs(all_designs)
-    if new_count:
-        print(f"✨ {new_count} new designs discovered!")
+        if cached:
+            print(f"⚠️ Store scan returned 0 results — using {len(cached)} cached designs from history")
+            all_designs = [
+                {
+                    'url': d['url'],
+                    'title': d.get('title', ''),
+                    'is_manual': d.get('is_manual', False),
+                    'post_count': d.get('post_count', 0),
+                    'last_posted': d.get('last_posted'),
+                }
+                for d in cached
+                if d.get('url', '').strip()
+            ]
+        else:
+            print("❌ No designs found and history is empty.")
+            print("   → Add REDBUBBLE_STORE_URL to Secrets, or add URLs in manual_products.json")
+            return None
 
-    # إعادة تحميل الهيستوري بعد التسجيل
+    # ── 4. تسجيل التصاميم الجديدة (لو السكان نجح) ────────────
+    if not store_scan_failed:
+        new_count = _register_designs(all_designs)
+        if new_count:
+            print(f"✨ {new_count} new designs discovered!")
+
+    # إعادة تحميل الهيستوري
     history = load_designs_history()
 
-    # ── 4. تصنيف التصاميم ────────────────────────────────────
+    # ── 5. تصنيف التصاميم ────────────────────────────────────
     never_posted = []
     posted_before = []
 
     for d in all_designs:
         key = url_key(d['url'])
         record = history['designs'].get(key, {})
+        # لو الـ record موجود في الهيستوري → استخدم بياناته
+        post_count  = record.get('post_count',  d.get('post_count', 0))
+        last_posted = record.get('last_posted', d.get('last_posted'))
         enriched = {
             **d,
-            'url': record.get('url', d['url']),
-            'title': record.get('title', d.get('title', '')),
-            'post_count': record.get('post_count', 0),
-            'last_posted': record.get('last_posted'),
+            'url':         record.get('url',   d['url']),
+            'title':       record.get('title', d.get('title', '')),
+            'post_count':  post_count,
+            'last_posted': last_posted,
         }
-        if enriched['post_count'] == 0:
+        if post_count == 0:
             never_posted.append(enriched)
         else:
             posted_before.append(enriched)
