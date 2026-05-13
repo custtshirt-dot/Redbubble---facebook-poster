@@ -159,16 +159,122 @@ def load_manual_products() -> list:
 # ══════════════════════════════════════════════════════════════
 
 def _extract_username(store_url: str) -> str | None:
-    """استخراج اليوزرنيم من رابط الستور"""
-    m = re.search(r'redbubble\.com/people/([^/?#]+)', store_url)
-    return m.group(1) if m else None
+    """استخراج اليوزرنيم من رابط الستور — بيدعم /people/X و /@X و @X"""
+    store_url = store_url.strip()
+
+    # Format: redbubble.com/people/username
+    m = re.search(r'redbubble\.com/people/([^/?#@\s]+)', store_url)
+    if m:
+        return m.group(1).lstrip('@')
+
+    # Format: redbubble.com/@username or /@username
+    m = re.search(r'redbubble\.com/@([^/?#\s]+)', store_url)
+    if m:
+        return m.group(1)
+
+    # Format: bare @username
+    m = re.match(r'^@([\w-]+)$', store_url)
+    if m:
+        return m.group(1)
+
+    # Format: bare username (no @ no URL)
+    if re.match(r'^[\w-]+$', store_url):
+        return store_url
+
+    return None
+
+
+def _extract_works_from_next_data(html: str, username: str, seen_ids: set) -> list:
+    """
+    ✅ استخراج التصاميم من __NEXT_DATA__ JSON
+    Redbubble بقى Next.js — الداتا بتكون JSON في <script id="__NEXT_DATA__">
+    """
+    found = []
+    m = re.search(r'<script[^>]+id=["\'"]__NEXT_DATA__["\'"][^>]*>(.+?)</script>',
+                  html, re.DOTALL)
+    if not m:
+        return found
+    try:
+        data = json.loads(m.group(1))
+    except Exception:
+        return found
+
+    raw = json.dumps(data)
+
+    # Pattern 1: /people/username/works/ID-slug
+    for wm in re.finditer(
+        r'/people/' + re.escape(username) + r'/works/(\d+)-([^"\'\\s/?#]+)',
+        raw
+    ):
+        work_id, slug = wm.group(1), wm.group(2)
+        if work_id not in seen_ids:
+            seen_ids.add(work_id)
+            full_url = f"https://www.redbubble.com/people/{username}/works/{work_id}-{slug}"
+            found.append({
+                'url':       full_url,
+                'title':     slug.replace('-', ' ').title()[:80],
+                'work_id':   work_id,
+                'is_manual': False,
+            })
+
+    # Pattern 2: /shop/ap/XXXXXXXX (newer Redbubble URL format)
+    for wm in re.finditer(r'\"/shop/ap/(\d{7,})(?:-[^"\'\\s/?#]*)?\"(?=[,}\]])', raw):
+        work_id = wm.group(1)
+        if work_id not in seen_ids:
+            seen_ids.add(work_id)
+            found.append({
+                'url':       f"https://www.redbubble.com/shop/ap/{work_id}",
+                'title':     f"Design {work_id}",
+                'work_id':   work_id,
+                'is_manual': False,
+            })
+
+    return found
+
+
+def _extract_works_from_html(html: str, username: str, seen_ids: set) -> list:
+    """Fallback: استخراج من raw HTML — patterns متعددة"""
+    found = []
+
+    patterns = [
+        re.compile(
+            r'href=["\'](/people/' + re.escape(username) +
+            r'/works/(\d+)-([^"\'?#\s]+))["\']',
+            re.IGNORECASE
+        ),
+        re.compile(
+            r'href=["\'](/i/[^"\'?#\s]+/(\d{7,})[^"\'?#\s]*)["\']',
+            re.IGNORECASE
+        ),
+    ]
+
+    for pat in patterns:
+        for m in pat.finditer(html):
+            groups = m.groups()
+            work_path, work_id = groups[0], groups[1]
+            slug = groups[2] if len(groups) > 2 else work_path.split('-', 1)[-1]
+            if not work_id or work_id in seen_ids:
+                continue
+            seen_ids.add(work_id)
+            full_url = ('https://www.redbubble.com' + work_path
+                        if work_path.startswith('/') else work_path)
+            found.append({
+                'url':       full_url,
+                'title':     slug.replace('-', ' ').title()[:80],
+                'work_id':   work_id,
+                'is_manual': False,
+            })
+
+    return found
 
 
 def scrape_store_designs(store_url: str, max_pages: int = 5) -> list:
     """
-    سكان الستور واستخراج كل روابط التصاميم (works)
+    ✅ سكان الستور — يجرب __NEXT_DATA__ أول (Next.js) ثم raw HTML كـ fallback
     بيرجع list of {'url': ..., 'title': ..., 'work_id': ...}
     """
+    import time
+
     username = _extract_username(store_url)
     if not username:
         print(f"⚠️ Cannot parse username from store URL: {store_url}")
@@ -178,6 +284,18 @@ def scrape_store_designs(store_url: str, max_pages: int = 5) -> list:
     designs = []
     seen_ids = set()
 
+    scan_headers = {
+        **HEADERS,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Cache-Control': 'max-age=0',
+    }
+
     for page in range(1, max_pages + 1):
         page_url = (
             f"https://www.redbubble.com/people/{username}/shop"
@@ -186,63 +304,51 @@ def scrape_store_designs(store_url: str, max_pages: int = 5) -> list:
         print(f"   📄 Page {page}/{max_pages} ...", end=' ', flush=True)
 
         try:
-            resp = requests.get(page_url, headers=HEADERS, timeout=20)
+            resp = requests.get(page_url, headers=scan_headers, timeout=25)
 
             if resp.status_code == 429:
-                print(f"⚠️ Rate limited — stopping")
-                break
+                wait = int(resp.headers.get('Retry-After', 60))
+                print(f"⚠️ Rate limited — waiting {wait}s")
+                time.sleep(wait)
+                continue
             if resp.status_code == 404:
-                print(f"❌ Store not found")
+                print(f"❌ Store not found — check REDBUBBLE_STORE_URL secret")
                 break
             if resp.status_code != 200:
-                print(f"⚠️ HTTP {resp.status_code}")
-                break
+                print(f"⚠️ HTTP {resp.status_code} — skipping page")
+                continue
 
             html = resp.text
 
-            # استخراج روابط الـ works من الـ HTML
-            found_on_page = 0
-            # Pattern 1: /works/ID-slug
-            pattern = re.compile(
-                r'href=["\'](/people/' + re.escape(username) +
-                r'/works/(\d+)-([^"\'?#\s]+))["\']',
-                re.IGNORECASE
-            )
-            for m in pattern.finditer(html):
-                work_path, work_id, slug = m.group(1), m.group(2), m.group(3)
-                if work_id not in seen_ids:
-                    seen_ids.add(work_id)
-                    full_url = f"https://www.redbubble.com{work_path}"
-                    title = slug.replace('-', ' ').title()
-                    designs.append({
-                        'url': full_url,
-                        'title': title,
-                        'work_id': work_id,
-                        'is_manual': False,
-                    })
-                    found_on_page += 1
+            # ✅ محاولة 1: __NEXT_DATA__ JSON (أدق طريقة)
+            next_found = _extract_works_from_next_data(html, username, seen_ids)
+            if next_found:
+                designs.extend(next_found)
+                print(f"✅ {len(next_found)} designs (Next.js data)")
+            else:
+                # ✅ محاولة 2: raw HTML regex كـ fallback
+                html_found = _extract_works_from_html(html, username, seen_ids)
+                if html_found:
+                    designs.extend(html_found)
+                    print(f"✅ {len(html_found)} designs (HTML scan)")
+                else:
+                    print(f"⚠️ 0 designs on page {page} — may be rate-limited")
+                    break
 
-            print(f"✅ {found_on_page} designs found")
-
-            # لو الصفحة فارغة معناها وصلنا للآخر
-            if found_on_page == 0:
-                print(f"   ℹ️ No more designs — stopping at page {page}")
-                break
+            # تأخير بين الصفحات لتجنب الحجب
+            if page < max_pages and len(designs) > 0:
+                time.sleep(2)
 
         except requests.exceptions.Timeout:
             print(f"⏱️ Timeout on page {page}")
             break
         except Exception as e:
-            print(f"❌ Error: {e}")
+            print(f"❌ Error on page {page}: {e}")
             break
 
     print(f"🎨 Store scan complete: {len(designs)} total designs found\n")
     return designs
 
-
-# ══════════════════════════════════════════════════════════════
-# 🧠 SMART SELECTION
-# ══════════════════════════════════════════════════════════════
 
 def _register_designs(all_designs: list) -> int:
     """
