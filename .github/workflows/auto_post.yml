@@ -12,27 +12,24 @@ name: 🚀 Auto Post Every 3 Hours — Redbubble Smart Poster
 #   UTC 18:00 → مصر 08:00 مساءً
 #   UTC 21:00 → مصر 11:00 مساءً
 #
-#   (مصر = UTC+2 في الشتاء / UTC+3 في الصيف)
-#   المواعيد المكتوبة فوق للتوقيت الشتوي UTC+2
+#   (مصر = UTC+2 شتاء / UTC+3 صيف)
 # ══════════════════════════════════════════════════════════════
 
 on:
   schedule:
-    # ── البوست كل 3 ساعات بالظبط (8 مرات في اليوم) ──────────
-    - cron: '0 0 * * *'    # 12:00 AM  UTC  →  02:00 AM  مصر
-    - cron: '0 3 * * *'    # 03:00 AM  UTC  →  05:00 AM  مصر
-    - cron: '0 6 * * *'    # 06:00 AM  UTC  →  08:00 AM  مصر
-    - cron: '0 9 * * *'    # 09:00 AM  UTC  →  11:00 AM  مصر
-    - cron: '0 12 * * *'   # 12:00 PM  UTC  →  02:00 PM  مصر
-    - cron: '0 15 * * *'   # 03:00 PM  UTC  →  05:00 PM  مصر
-    - cron: '0 18 * * *'   # 06:00 PM  UTC  →  08:00 PM  مصر
-    - cron: '0 21 * * *'   # 09:00 PM  UTC  →  11:00 PM  مصر
+    - cron: '0 0 * * *'    # 12:00 AM UTC  →  02:00 AM مصر
+    - cron: '0 3 * * *'    # 03:00 AM UTC  →  05:00 AM مصر
+    - cron: '0 6 * * *'    # 06:00 AM UTC  →  08:00 AM مصر
+    - cron: '0 9 * * *'    # 09:00 AM UTC  →  11:00 AM مصر
+    - cron: '0 12 * * *'   # 12:00 PM UTC  →  02:00 PM مصر
+    - cron: '0 15 * * *'   # 03:00 PM UTC  →  05:00 PM مصر
+    - cron: '0 18 * * *'   # 06:00 PM UTC  →  08:00 PM مصر
+    - cron: '0 21 * * *'   # 09:00 PM UTC  →  11:00 PM مصر
 
-  # ── تشغيل يدوي مع خيارات ──────────────────────────────────
   workflow_dispatch:
     inputs:
       redbubble_url:
-        description: '🔗 رابط منتج يدوي (اتركه فاضي = يسكان الستور أوتوماتيك)'
+        description: '🔗 رابط منتج يدوي (فاضي = أوتوماتيك)'
         required: false
         default: ''
 
@@ -55,10 +52,10 @@ on:
         required: false
         default: 'mixed'
         type: choice
-        options: [funny, emotional, hard_sell, mixed]
+        options: [mixed, sales_blast, funny, emotional, hard_sell]
 
       force_post:
-        description: '⚡ نشر حتى لو اتنشر مؤخراً (يتجاوز الـ cooldown)'
+        description: '⚡ نشر حتى لو في cooldown'
         required: false
         default: 'false'
         type: choice
@@ -110,8 +107,8 @@ jobs:
           else
             POST_TYPE_AUTO="reels"
           fi
-          echo "index=$IDX"                      >> $GITHUB_OUTPUT
-          echo "post_type_auto=$POST_TYPE_AUTO"  >> $GITHUB_OUTPUT
+          echo "index=$IDX"                     >> $GITHUB_OUTPUT
+          echo "post_type_auto=$POST_TYPE_AUTO" >> $GITHUB_OUTPUT
           echo "Rotation: $IDX → $POST_TYPE_AUTO (hour=$HOUR)"
 
       - name: ⚙️ Set environment variables
@@ -138,7 +135,7 @@ jobs:
           echo "Trigger  : ${{ github.event_name }}"
           echo "UTC Time : $(date -u '+%H:%M')"
           echo "Egypt    : $(TZ='Africa/Cairo' date '+%H:%M %Z')"
-          echo "URL      : ${RB_URL:-'(empty — will scan store)'}"
+          echo "URL      : ${RB_URL:-'(auto)'}"
           echo "PostType : $POST_T"
           echo "Language : $LANG"
           echo "Style    : $STY"
@@ -185,29 +182,27 @@ jobs:
         if: success()
         run: |
           echo "🎉 Posted! Trigger: ${{ github.event_name }}"
-          echo "🕐 UTC Time : $(date -u '+%Y-%m-%d %H:%M')"
-          echo "🕐 Egypt    : $(TZ='Africa/Cairo' date '+%Y-%m-%d %H:%M %Z')"
+          echo "🕐 UTC  : $(date -u '+%Y-%m-%d %H:%M')"
+          echo "🕐 Egypt: $(TZ='Africa/Cairo' date '+%Y-%m-%d %H:%M %Z')"
           [ -f designs_history.json ] && python -c "
           import json
           h = json.load(open('designs_history.json'))
-          print(f'Total posts: {h.get(\"total_posts\",0)}')
+          print(f'Total posts   : {h.get(\"total_posts\",0)}')
           print(f'Designs tracked: {len(h.get(\"designs\",{}))}')
           "
 
       - name: ❌ Summary (Failure)
         if: failure()
         run: |
-          echo "⚠️ Failed. Trigger: ${{ github.event_name }}"
-          echo "Check FB_TOKEN and REDBUBBLE_STORE_URL in Secrets"
+          echo "⚠️ Failed — Trigger: ${{ github.event_name }}"
+          echo "Check FB_TOKEN and secrets in repo settings"
 
   # ════════════════════════════════════════════════════════════
-  # 📋 JOB 2 — تحديث الكتالوج اليومي الساعة 7 صباحاً UTC
-  #            (= 09:00 صباحاً بتوقيت مصر الشتوي)
+  # 📋 JOB 2 — تحديث الكتالوج يومياً الساعة 7 UTC (9 مصر)
   # ════════════════════════════════════════════════════════════
   update-catalog:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # ✅ يشتغل بس لو الوقت 07:00 UTC أو تشغيل يدوي
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'schedule' && startsWith(github.event.schedule, '0 7'))
@@ -235,8 +230,7 @@ jobs:
           FB_PAGE_ID:          ${{ secrets.FB_PAGE_ID }}
           FB_TOKEN:            ${{ secrets.FB_TOKEN }}
         run: |
-          echo "🕐 Running daily catalog update..."
-          echo "UTC : $(date -u '+%Y-%m-%d %H:%M')"
+          echo "UTC  : $(date -u '+%Y-%m-%d %H:%M')"
           echo "Egypt: $(TZ='Africa/Cairo' date '+%Y-%m-%d %H:%M %Z')"
           python update_catalog.py
 
