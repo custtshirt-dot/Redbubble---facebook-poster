@@ -154,54 +154,110 @@ def load_manual_products() -> list:
         return []
 
 
+
+
 # ══════════════════════════════════════════════════════════════
 # 🔍 STORE SCRAPING
 # ══════════════════════════════════════════════════════════════
 
 def _extract_username(store_url: str) -> str | None:
-    """استخراج اليوزرنيم من رابط الستور — بيدعم /people/X و /@X و @X"""
+    """استخراج اليوزرنيم — بيدعم /people/X و /@X و @X وبالاسم مباشرة"""
     store_url = store_url.strip()
-
-    # Format: redbubble.com/people/username
-    m = re.search(r'redbubble\.com/people/([^/?#@\s]+)', store_url)
-    if m:
-        return m.group(1).lstrip('@')
-
-    # Format: redbubble.com/@username or /@username
-    m = re.search(r'redbubble\.com/@([^/?#\s]+)', store_url)
-    if m:
-        return m.group(1)
-
-    # Format: bare @username
-    m = re.match(r'^@([\w-]+)$', store_url)
-    if m:
-        return m.group(1)
-
-    # Format: bare username (no @ no URL)
+    for pat in [
+        r'redbubble\.com/people/([^/?#@\s]+)',
+        r'redbubble\.com/@([^/?#\s]+)',
+        r'^@([\w-]+)$',
+    ]:
+        m = re.search(pat, store_url)
+        if m:
+            return m.group(1).lstrip('@')
     if re.match(r'^[\w-]+$', store_url):
         return store_url
-
     return None
 
 
-def _extract_works_from_next_data(html: str, username: str, seen_ids: set) -> list:
+def _scrape_via_atom_feed(username: str, seen_ids: set) -> list:
     """
-    ✅ استخراج التصاميم من __NEXT_DATA__ JSON
-    Redbubble بقى Next.js — الداتا بتكون JSON في <script id="__NEXT_DATA__">
+    ✅ الطريقة الأموثق — Atom/RSS Feed عام ومش بيتحجب
+    URL: redbubble.com/people/{username}/works.atom
     """
+    import xml.etree.ElementTree as ET
+
+    feed_url = f"https://www.redbubble.com/people/{username}/works.atom"
+    designs = []
+
+    try:
+        resp = requests.get(feed_url, headers=HEADERS, timeout=20)
+        if resp.status_code != 200:
+            print(f"   ⚠️ Atom feed HTTP {resp.status_code}")
+            return []
+
+        root = ET.fromstring(resp.content)
+        ns = {'atom': 'http://www.w3.org/2005/Atom'}
+
+        entries = root.findall('atom:entry', ns)
+        if not entries:
+            # جرب بدون namespace
+            entries = root.findall('entry')
+
+        for entry in entries:
+            # استخراج الرابط
+            link_el = (
+                entry.find('atom:link[@rel="alternate"]', ns) or
+                entry.find('atom:link', ns) or
+                entry.find('link')
+            )
+            url = (link_el.get('href') if link_el is not None else None) or ''
+            url = url.split('?')[0].strip()
+            if not url:
+                continue
+
+            # استخراج الـ work_id
+            work_id = ''
+            id_el = entry.find('atom:id', ns) or entry.find('id')
+            if id_el is not None and id_el.text:
+                m = re.search(r'/(\d{6,})', id_el.text)
+                if m:
+                    work_id = m.group(1)
+            if not work_id:
+                m = re.search(r'/(\d{6,})', url)
+                work_id = m.group(1) if m else url[-12:]
+
+            if work_id in seen_ids:
+                continue
+            seen_ids.add(work_id)
+
+            # استخراج العنوان
+            title_el = entry.find('atom:title', ns) or entry.find('title')
+            title = (title_el.text or '').strip()[:80] if title_el is not None else f"Design {work_id}"
+
+            designs.append({
+                'url':       url,
+                'title':     title,
+                'work_id':   work_id,
+                'is_manual': False,
+            })
+
+    except Exception as e:
+        print(f"   ⚠️ Atom feed error: {e}")
+
+    return designs
+
+
+def _scrape_via_next_data(html: str, username: str, seen_ids: set) -> list:
+    """Fallback 1 — __NEXT_DATA__ JSON مدمج في الصفحة (Next.js)"""
     found = []
-    m = re.search(r'<script[^>]+id=["\'"]__NEXT_DATA__["\'"][^>]*>(.+?)</script>',
-                  html, re.DOTALL)
+    m = re.search(
+        r'<script[^>]+id=["\'\"]__NEXT_DATA__["\'\"][^>]*>(.+?)</script>',
+        html, re.DOTALL
+    )
     if not m:
         return found
     try:
-        data = json.loads(m.group(1))
+        raw = json.dumps(json.loads(m.group(1)))
     except Exception:
         return found
 
-    raw = json.dumps(data)
-
-    # Pattern 1: /people/username/works/ID-slug
     for wm in re.finditer(
         r'/people/' + re.escape(username) + r'/works/(\d+)-([^"\'\\s/?#]+)',
         raw
@@ -209,16 +265,14 @@ def _extract_works_from_next_data(html: str, username: str, seen_ids: set) -> li
         work_id, slug = wm.group(1), wm.group(2)
         if work_id not in seen_ids:
             seen_ids.add(work_id)
-            full_url = f"https://www.redbubble.com/people/{username}/works/{work_id}-{slug}"
             found.append({
-                'url':       full_url,
+                'url':       f"https://www.redbubble.com/people/{username}/works/{work_id}-{slug}",
                 'title':     slug.replace('-', ' ').title()[:80],
                 'work_id':   work_id,
                 'is_manual': False,
             })
 
-    # Pattern 2: /shop/ap/XXXXXXXX (newer Redbubble URL format)
-    for wm in re.finditer(r'\"/shop/ap/(\d{7,})(?:-[^"\'\\s/?#]*)?\"(?=[,}\]])', raw):
+    for wm in re.finditer(r'\"/shop/ap/(\d{7,})["\'\\s/?#]', raw):
         work_id = wm.group(1)
         if work_id not in seen_ids:
             seen_ids.add(work_id)
@@ -232,63 +286,69 @@ def _extract_works_from_next_data(html: str, username: str, seen_ids: set) -> li
     return found
 
 
-def _extract_works_from_html(html: str, username: str, seen_ids: set) -> list:
-    """Fallback: استخراج من raw HTML — patterns متعددة"""
+def _scrape_via_html(html: str, username: str, seen_ids: set) -> list:
+    """Fallback 2 — raw HTML regex"""
     found = []
-
-    patterns = [
+    for pat in [
         re.compile(
             r'href=["\'](/people/' + re.escape(username) +
-            r'/works/(\d+)-([^"\'?#\s]+))["\']',
-            re.IGNORECASE
+            r'/works/(\d+)-([^"\'?#\s]+))["\']', re.IGNORECASE
         ),
         re.compile(
-            r'href=["\'](/i/[^"\'?#\s]+/(\d{7,})[^"\'?#\s]*)["\']',
-            re.IGNORECASE
+            r'href=["\'](/i/[^"\'?#\s]+/(\d{7,})[^"\'?#\s]*)["\']', re.IGNORECASE
         ),
-    ]
-
-    for pat in patterns:
+    ]:
         for m in pat.finditer(html):
-            groups = m.groups()
-            work_path, work_id = groups[0], groups[1]
-            slug = groups[2] if len(groups) > 2 else work_path.split('-', 1)[-1]
-            if not work_id or work_id in seen_ids:
-                continue
-            seen_ids.add(work_id)
-            full_url = ('https://www.redbubble.com' + work_path
-                        if work_path.startswith('/') else work_path)
-            found.append({
-                'url':       full_url,
-                'title':     slug.replace('-', ' ').title()[:80],
-                'work_id':   work_id,
-                'is_manual': False,
-            })
-
+            g = m.groups()
+            work_path, work_id = g[0], g[1]
+            slug = g[2] if len(g) > 2 else work_path.rsplit('-', 1)[-1]
+            if work_id not in seen_ids:
+                seen_ids.add(work_id)
+                url = ('https://www.redbubble.com' + work_path
+                       if work_path.startswith('/') else work_path)
+                found.append({
+                    'url':       url.split('?')[0],
+                    'title':     slug.replace('-', ' ').title()[:80],
+                    'work_id':   work_id,
+                    'is_manual': False,
+                })
     return found
 
 
 def scrape_store_designs(store_url: str, max_pages: int = 5) -> list:
     """
-    ✅ سكان الستور — يجرب __NEXT_DATA__ أول (Next.js) ثم raw HTML كـ fallback
-    بيرجع list of {'url': ..., 'title': ..., 'work_id': ...}
+    ✅ سكان الستور — 3 طرق بالترتيب:
+    1. Atom Feed  (الأموثق — مش بيتحجب)
+    2. __NEXT_DATA__ JSON
+    3. raw HTML regex
     """
     import time
 
     username = _extract_username(store_url)
     if not username:
-        print(f"⚠️ Cannot parse username from store URL: {store_url}")
+        print(f"⚠️ Cannot parse username from: {store_url}")
         return []
 
     print(f"\n🏪 Scanning Redbubble store: @{username}")
     designs = []
     seen_ids = set()
 
+    # ── الطريقة 1: Atom Feed ─────────────────────────────────
+    print(f"   📡 Trying Atom feed ...", end=' ', flush=True)
+    atom_designs = _scrape_via_atom_feed(username, seen_ids)
+    if atom_designs:
+        designs.extend(atom_designs)
+        print(f"✅ {len(atom_designs)} designs via Atom feed")
+        print(f"🎨 Store scan complete: {len(designs)} total designs found\n")
+        return designs
+    else:
+        print(f"⚠️ Atom feed empty — trying HTML scan")
+
+    # ── الطريقة 2 & 3: HTML scraping ─────────────────────────
     scan_headers = {
         **HEADERS,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
         'Upgrade-Insecure-Requests': '1',
         'Sec-Fetch-Dest': 'document',
         'Sec-Fetch-Mode': 'navigate',
@@ -308,42 +368,39 @@ def scrape_store_designs(store_url: str, max_pages: int = 5) -> list:
 
             if resp.status_code == 429:
                 wait = int(resp.headers.get('Retry-After', 60))
-                print(f"⚠️ Rate limited — waiting {wait}s")
+                print(f"⏳ Rate limited — waiting {wait}s")
                 time.sleep(wait)
                 continue
             if resp.status_code == 404:
-                print(f"❌ Store not found — check REDBUBBLE_STORE_URL secret")
+                print(f"❌ Store not found")
                 break
             if resp.status_code != 200:
-                print(f"⚠️ HTTP {resp.status_code} — skipping page")
-                continue
+                print(f"⚠️ HTTP {resp.status_code}")
+                break
 
             html = resp.text
 
-            # ✅ محاولة 1: __NEXT_DATA__ JSON (أدق طريقة)
-            next_found = _extract_works_from_next_data(html, username, seen_ids)
-            if next_found:
-                designs.extend(next_found)
-                print(f"✅ {len(next_found)} designs (Next.js data)")
-            else:
-                # ✅ محاولة 2: raw HTML regex كـ fallback
-                html_found = _extract_works_from_html(html, username, seen_ids)
-                if html_found:
-                    designs.extend(html_found)
-                    print(f"✅ {len(html_found)} designs (HTML scan)")
-                else:
-                    print(f"⚠️ 0 designs on page {page} — may be rate-limited")
-                    break
+            found = _scrape_via_next_data(html, username, seen_ids)
+            method = "Next.js"
+            if not found:
+                found = _scrape_via_html(html, username, seen_ids)
+                method = "HTML"
 
-            # تأخير بين الصفحات لتجنب الحجب
-            if page < max_pages and len(designs) > 0:
+            if found:
+                designs.extend(found)
+                print(f"✅ {len(found)} designs ({method}) — total: {len(designs)}")
+            else:
+                print(f"⚠️ 0 designs — stopping")
+                break
+
+            if page < max_pages:
                 time.sleep(2)
 
         except requests.exceptions.Timeout:
-            print(f"⏱️ Timeout on page {page}")
+            print(f"⏱️ Timeout")
             break
         except Exception as e:
-            print(f"❌ Error on page {page}: {e}")
+            print(f"❌ {e}")
             break
 
     print(f"🎨 Store scan complete: {len(designs)} total designs found\n")
