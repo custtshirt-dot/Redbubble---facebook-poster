@@ -41,7 +41,7 @@ on:
         required: false
         default: 'auto'
         type: choice
-        options: [auto, album, single, link, video, reels, text, all]
+        options: [auto, album, reels]
 
       language:
         description: '🌍 لغة الكابشن'
@@ -104,8 +104,15 @@ jobs:
         run: |
           HOUR=$(date +%-H)
           IDX=$((HOUR / 3))
-          echo "index=$IDX" >> $GITHUB_OUTPUT
-          echo "Rotation index: $IDX (hour=$HOUR)"
+          # ✅ يتبادل بين album و reels — زوجي=album / فردي=reels
+          if [ $((IDX % 2)) -eq 0 ]; then
+            POST_TYPE_AUTO="album"
+          else
+            POST_TYPE_AUTO="reels"
+          fi
+          echo "index=$IDX"                      >> $GITHUB_OUTPUT
+          echo "post_type_auto=$POST_TYPE_AUTO"  >> $GITHUB_OUTPUT
+          echo "Rotation: $IDX → $POST_TYPE_AUTO (hour=$HOUR)"
 
       - name: ⚙️ Set environment variables
         id: vars
@@ -149,7 +156,7 @@ jobs:
           GROQ_API_KEY:        ${{ secrets.GROQ_API_KEY }}
           REDBUBBLE_STORE_URL: ${{ secrets.REDBUBBLE_STORE_URL }}
           REDBUBBLE_URL:       ${{ steps.vars.outputs.rb_url }}
-          POST_TYPE:           ${{ steps.vars.outputs.post_type }}
+          POST_TYPE:           ${{ steps.vars.outputs.post_type == 'auto' && steps.rotation.outputs.post_type_auto || steps.vars.outputs.post_type }}
           LANGUAGE:            ${{ steps.vars.outputs.language }}
           STYLE:               ${{ steps.vars.outputs.style }}
           MAX_IMAGES:          '30'
