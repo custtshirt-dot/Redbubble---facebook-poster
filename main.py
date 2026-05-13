@@ -39,7 +39,7 @@ from pinterest_poster import post_to_pinterest
 from video_creator import create_slideshow_video, create_reels_video
 from voice_generator import generate_voice, get_random_voice_style
 from templates import get_text_only_post, get_link_post
-from history_manager import record_post, get_stats
+from history_manager import record_post, get_stats, is_duplicate
 
 
 # ══════════════════════════════════════════════════════════════
@@ -272,6 +272,15 @@ def main():
 
     # ── اختيار التصميم ──────────────────────────────────────
     target = get_target_url()
+
+    # ✅ التحقق من التكرار قبل أي حاجة تانية
+    active_post_type_check = get_post_type_for_this_run()
+    pre_url = target.get('url', '')
+    if pre_url and is_duplicate(pre_url, active_post_type_check, cooldown_hours=24):
+        print(f"\n⏸️  Design already posted within 24h — skipping this run")
+        print(f"   URL: {pre_url[:70]}")
+        print("=" * 60)
+        sys.exit(0)
 
     # ── استخراج الصور ───────────────────────────────────────
     images, target_url, design_title, is_new = get_images_with_fallback(target)
