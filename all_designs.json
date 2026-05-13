@@ -1,19 +1,19 @@
 {
-  "last_updated": "2026-05-13T03:25:50.845359",
+  "last_updated": "2026-05-13T03:57:01.706379",
   "store_url": "https://www.redbubble.com/people/cust-tshirts/shop",
   "total": 8,
-  "posted_count": 0,
-  "never_posted_count": 8,
-  "total_posts_made": 13,
+  "posted_count": 1,
+  "never_posted_count": 7,
+  "total_posts_made": 14,
   "designs": [
     {
       "title": "Z5Wf",
       "url": "https://www.redbubble.com/i/t-shirt/Funny-Ghost-Mask-Call-Me-Retro-Spooky-Design-by-Cust-tshirts/174770482/z5wf",
       "work_id": "174770482",
-      "post_count": 0,
-      "last_posted": null,
-      "first_seen": null,
-      "status": "🆕 Never Posted"
+      "post_count": 1,
+      "last_posted": "2026-05-13T03:27:24.359749",
+      "first_seen": "2026-05-13T03:25:42.270737",
+      "status": "✅ Posted"
     },
     {
       "title": "Sgk",
@@ -21,7 +21,7 @@
       "work_id": "174770243",
       "post_count": 0,
       "last_posted": null,
-      "first_seen": null,
+      "first_seen": "2026-05-13T03:25:42.270746",
       "status": "🆕 Never Posted"
     },
     {
@@ -30,7 +30,7 @@
       "work_id": "177169483",
       "post_count": 0,
       "last_posted": null,
-      "first_seen": null,
+      "first_seen": "2026-05-13T03:25:42.270749",
       "status": "🆕 Never Posted"
     },
     {
@@ -39,7 +39,7 @@
       "work_id": "177701196",
       "post_count": 0,
       "last_posted": null,
-      "first_seen": null,
+      "first_seen": "2026-05-13T03:25:42.270753",
       "status": "🆕 Never Posted"
     },
     {
@@ -48,7 +48,7 @@
       "work_id": "177196596",
       "post_count": 0,
       "last_posted": null,
-      "first_seen": null,
+      "first_seen": "2026-05-13T03:25:42.270755",
       "status": "🆕 Never Posted"
     },
     {
@@ -57,7 +57,7 @@
       "work_id": "177196475",
       "post_count": 0,
       "last_posted": null,
-      "first_seen": null,
+      "first_seen": "2026-05-13T03:25:42.270758",
       "status": "🆕 Never Posted"
     },
     {
@@ -66,7 +66,7 @@
       "work_id": "177179139",
       "post_count": 0,
       "last_posted": null,
-      "first_seen": null,
+      "first_seen": "2026-05-13T03:25:42.270761",
       "status": "🆕 Never Posted"
     },
     {
@@ -75,7 +75,7 @@
       "work_id": "177111450",
       "post_count": 0,
       "last_posted": null,
-      "first_seen": null,
+      "first_seen": "2026-05-13T03:25:42.270768",
       "status": "🆕 Never Posted"
     }
   ]
