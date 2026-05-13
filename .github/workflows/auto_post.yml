@@ -12,7 +12,7 @@ name: 🚀 Auto Post Every 3 Hours — Redbubble Smart Poster
 #   UTC 18:00 → مصر 08:00 مساءً
 #   UTC 21:00 → مصر 11:00 مساءً
 #
-#   (مصر = UTC+2 شتاء / UTC+3 صيف)
+#   (مصر = UTC+2 في الشتاء / UTC+3 في الصيف)
 # ══════════════════════════════════════════════════════════════
 
 on:
@@ -143,22 +143,26 @@ jobs:
 
       - name: 🚀 Run Smart Poster
         env:
-          FB_PAGE_ID:          ${{ secrets.FB_PAGE_ID }}
-          FB_TOKEN:            ${{ secrets.FB_TOKEN }}
-          INSTAGRAM_USER_ID:   ${{ secrets.INSTAGRAM_USER_ID }}
-          INSTAGRAM_TOKEN:     ${{ secrets.INSTAGRAM_TOKEN }}
-          PINTEREST_TOKEN:     ${{ secrets.PINTEREST_TOKEN }}
-          PINTEREST_BOARD_ID:  ${{ secrets.PINTEREST_BOARD_ID }}
-          PINTEREST_USERNAME:  ${{ secrets.PINTEREST_USERNAME }}
-          GROQ_API_KEY:        ${{ secrets.GROQ_API_KEY }}
-          REDBUBBLE_STORE_URL: ${{ secrets.REDBUBBLE_STORE_URL }}
-          REDBUBBLE_URL:       ${{ steps.vars.outputs.rb_url }}
-          POST_TYPE:           ${{ steps.vars.outputs.post_type == 'auto' && steps.rotation.outputs.post_type_auto || steps.vars.outputs.post_type }}
-          LANGUAGE:            ${{ steps.vars.outputs.language }}
-          STYLE:               ${{ steps.vars.outputs.style }}
-          MAX_IMAGES:          '30'
-          POST_ROTATION_INDEX: ${{ steps.rotation.outputs.index }}
-          IGNORE_DUPLICATES:   ${{ steps.vars.outputs.force }}
+          FB_PAGE_ID:            ${{ secrets.FB_PAGE_ID }}
+          FB_TOKEN:              ${{ secrets.FB_TOKEN }}
+          INSTAGRAM_USER_ID:     ${{ secrets.INSTAGRAM_USER_ID }}
+          INSTAGRAM_TOKEN:       ${{ secrets.INSTAGRAM_TOKEN }}
+          PINTEREST_TOKEN:       ${{ secrets.PINTEREST_TOKEN }}
+          PINTEREST_BOARD_ID:    ${{ secrets.PINTEREST_BOARD_ID }}
+          PINTEREST_USERNAME:    ${{ secrets.PINTEREST_USERNAME }}
+          GROQ_API_KEY:          ${{ secrets.GROQ_API_KEY }}
+          BLOGGER_BLOG_ID:       ${{ secrets.BLOGGER_BLOG_ID }}
+          BLOGGER_CLIENT_ID:     ${{ secrets.BLOGGER_CLIENT_ID }}
+          BLOGGER_CLIENT_SECRET: ${{ secrets.BLOGGER_CLIENT_SECRET }}
+          BLOGGER_REFRESH_TOKEN: ${{ secrets.BLOGGER_REFRESH_TOKEN }}
+          REDBUBBLE_STORE_URL:   ${{ secrets.REDBUBBLE_STORE_URL }}
+          REDBUBBLE_URL:         ${{ steps.vars.outputs.rb_url }}
+          POST_TYPE:             ${{ steps.vars.outputs.post_type == 'auto' && steps.rotation.outputs.post_type_auto || steps.vars.outputs.post_type }}
+          LANGUAGE:              ${{ steps.vars.outputs.language }}
+          STYLE:                 ${{ steps.vars.outputs.style }}
+          MAX_IMAGES:            '30'
+          POST_ROTATION_INDEX:   ${{ steps.rotation.outputs.index }}
+          IGNORE_DUPLICATES:     ${{ steps.vars.outputs.force }}
         run: python main.py
 
       - name: 💾 Save history to repository
