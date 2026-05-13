@@ -105,10 +105,11 @@ def generate_ai_caption(post_type='album', url='', design_hint='unique design'):
         return get_template_caption(STYLE, url, post_type)
     
     style_map = {
-        'funny': 'funny, witty, and humorous',
-        'emotional': 'emotional, heartfelt, and touching',
-        'hard_sell': 'urgent, persuasive, and sales-focused',
-        'mixed': random.choice(['funny', 'emotional', 'persuasive'])
+        'funny':       'funny, witty, and humorous — make them laugh then buy',
+        'emotional':   'emotional and heartfelt — make them feel this design was made for them',
+        'hard_sell':   'urgent, high-pressure, and sales-focused — create FOMO',
+        'sales_blast': 'explosive, hype-driven, desire-building — make them feel they NEED this NOW',
+        'mixed':       random.choice(['sales_blast', 'emotional', 'hard_sell', 'funny'])
     }
     
     selected_style = style_map.get(STYLE, 'engaging')
@@ -128,40 +129,75 @@ def generate_ai_caption(post_type='album', url='', design_hint='unique design'):
         'carousel': 'a carousel post telling a story',
     }.get(post_type, 'a Facebook post')
     
-    prompt = f"""You are a professional social media marketer for a Redbubble shop.
+    # اختار hook مختلف كل مرة عشان مش تبان مكررة
+    hook_styles = [
+        "Start with a bold relatable statement that makes them say 'That's SO me!'",
+        "Start with a curiosity-gap question they HAVE to answer",
+        "Start with a dramatic 'POV:' scenario putting them IN the design",
+        "Start with social proof: 'Everyone who sees this asks where I got it'",
+        "Start with a pattern-interrupt: unexpected, weird, or shocking first line",
+    ]
+    hook_choice = random.choice(hook_styles)
 
-The design is: "{design_hint}"
+    prompt = f"""You are a TOP-TIER Redbubble sales copywriter. Your captions drive real purchases.
 
-Create {type_instruction} that is {selected_style}. {lang_instruction}
+DESIGN: "{design_hint}"
+POST TYPE: {type_instruction}
+STYLE: {selected_style}
+LANGUAGE: {lang_instruction}
 
-CRITICAL: The caption MUST be ABOUT this specific design ({design_hint}).
-Do NOT write generic content. Reference the actual design theme!
+YOUR MISSION: Write a caption so good they stop scrolling, feel something, and click BUY.
 
-Structure:
-1. HOOK (1-2 lines): Stop the scroll - mention the design theme
-2. BODY (3-5 lines): Describe the design's appeal, build desire
-3. CTA (2-3 lines): Strong call-to-action with urgency
-4. Include emojis that match the design theme
-5. End with: 🛒 SHOP: {url}
-6. Add these hashtags: {HASHTAGS}
+HOOK STRATEGY: {hook_choice}
 
-STRICT RULES - NEVER violate these:
-- NEVER mention discount codes, promo codes, coupon codes, or percentage discounts
-- NEVER write things like "Use code X", "10% off", "SAVE20", or any promotional codes
-- NEVER invent prices or fake offers
+PROVEN CAPTION STRUCTURE:
+━━━━━━━━━━━━━━━━━━━━━━━━
+1. 🔥 HOOK (2 lines MAX)
+   - {hook_choice}
+   - Make it IMPOSSIBLE to ignore
+   - Directly reference: {design_hint}
 
-Make it authentic and design-specific. Optimize for Facebook engagement.
-Keep total under 500 words."""
+2. 💎 DESIRE BUILD (3-4 lines)
+   - Paint the picture: what does owning this FEEL like?
+   - Who is this PERFECT for? (gift idea angle works great)
+   - Mention it ships worldwide, high quality
+   - Use sensory/emotional language
+
+3. ⚡ URGENCY TRIGGER (1-2 lines)
+   - Create FOMO without fake discounts
+   - Examples: "This won't stay under the radar long"
+   - "Perfect for [occasion] — don't wait"
+
+4. 🛒 CTA (2 lines)
+   - Direct: "Grab yours now 👇"
+   - Then: 🛒 SHOP: {url}
+
+5. #️⃣ HASHTAGS:
+   {HASHTAGS}
+
+POWER RULES — READ CAREFULLY:
+✅ Every sentence must earn its place — no filler
+✅ Use emojis that MATCH the design theme ({design_hint})
+✅ Speak TO the buyer ("you", "your", "you'll love")
+✅ Gift angle: "Perfect gift for [audience who loves this design]"
+✅ For reels: keep caption under 150 chars — pure punch
+✅ Make the design sound EXCLUSIVE and SPECIAL
+❌ NEVER: discount codes, promo codes, fake prices, % off
+❌ NEVER: generic captions that could apply to ANY product
+❌ NEVER: boring, corporate, or robotic language
+
+This caption must feel HUMAN, EXCITING, and make them think "I need this."
+Max 400 words."""
 
     try:
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": "You are an expert Facebook marketing copywriter. You ALWAYS write design-specific content. You NEVER include discount codes, promo codes, or coupon codes in any caption."},
+                {"role": "system", "content": "You are an elite Redbubble sales copywriter who writes scroll-stopping, purchase-driving captions. Every word is intentional. You write with energy, emotion, and urgency. You ALWAYS match the design theme. You NEVER use discount codes, promo codes, or fake offers. You write captions that make people feel they NEED this product NOW."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.9,
-            max_tokens=800,
+            temperature=1.0,
+            max_tokens=900,
         )
         
         caption = response.choices[0].message.content.strip()
@@ -185,47 +221,43 @@ def generate_video_script(design_hint, url, max_seconds=30):
     if not client:
         return _get_fallback_script(design_hint)
     
-    prompt = f"""You are writing a SPOKEN script for a 20-30 second Facebook Reels video about a Redbubble design.
+    hook_openers = [
+        "Stop. You need to see this.",
+        "Wait — is this not the most perfect thing you've seen?",
+        "POV: You finally found it.",
+        "I wasn't going to post this but...",
+        "This design is going viral for a reason.",
+        "Okay hear me out —",
+    ]
+    opener = random.choice(hook_openers)
 
-The design is: "{design_hint}"
+    prompt = f"""Write a SPOKEN Reels script for a Facebook/Instagram video about this Redbubble design.
 
-Write a script that follows this EXACT structure:
+DESIGN: "{design_hint}"
+OPENER TO USE: "{opener}"
 
-🔥 HOOK (3-5 seconds, ~12-15 words):
-- Grab attention immediately
-- Use shock, curiosity, or relatable problem
-- Examples: "Stop scrolling!", "You won't believe this design...", "POV: You found..."
+STRUCTURE (spoken words only — no labels, no emojis):
 
-💪 BODY (15-20 seconds, ~50-70 words):
-- Describe the design vibrantly
-- Mention products it's available on (stickers, t-shirts, mugs, etc.)
-- Build desire with quality, uniqueness
-- Speak directly to the viewer ("you", "your")
+HOOK (2-3 seconds): Use this opener: "{opener}" then connect to {design_hint}
+DESIRE (15 seconds): Paint the picture — who wears/uses this, how it makes them feel, available on tees/stickers/mugs/more
+SOCIAL PROOF (5 seconds): "People are obsessed with this" / "Perfect gift" / "Everyone asks where I got it"
+CTA (3 seconds): Short, punchy, urgent — "Link in bio, grab yours now" or "Tap below before it blows up"
 
-🎯 CTA (3-5 seconds, ~10-15 words):
-- Strong call-to-action
-- Create urgency
-- Examples: "Tap the link now!", "Get yours before they're gone!"
+RULES:
+- ONLY spoken words. No emojis. No hashtags. No markdown. No labels.
+- Short punchy sentences. Commas for pauses.
+- Max 85 words — tight, fast, viral
+- Energy level: 9/10 — excited but natural
+- Reference {design_hint} naturally throughout
+- NEVER mention discount codes, promo codes, or % off
 
-CRITICAL RULES:
-1. Write ONLY what should be SPOKEN (no emojis, no hashtags, no formatting, no markdown)
-2. Use natural conversational English
-3. Keep total under 90 words (fits 25-30 seconds)
-4. Use short punchy sentences
-5. Add commas for natural pauses
-6. Reference the design theme: {design_hint}
-7. Make it ENERGETIC and ENGAGING
-8. NO labels like "Hook:" or "Body:" - just flowing speech
-9. NEVER mention discount codes, promo codes, coupon codes, or percentage discounts
-10. NEVER say things like "Use code X", "10% off", or any promotional codes
-
-Output ONLY the spoken text. Nothing else. No markdown. No labels."""
+Output ONLY the spoken script. Nothing else."""
 
     try:
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": "You write punchy, engaging video scripts for social media ads. Output only spoken words with no formatting. Never mention discount codes or promo codes."},
+                {"role": "system", "content": "You are a viral Reels scriptwriter. Your scripts hook in 2 seconds, build desire fast, and end with a punch. Output ONLY spoken words — no labels, no formatting, no markdown. Never mention discount codes."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.9,
