@@ -1,11 +1,34 @@
 name: 🚀 Auto Post Every 3 Hours — Redbubble Smart Poster
 
-on:
-  # ── تشغيل أوتوماتيك كل 3 ساعات ──
-  schedule:
-    - cron: '0 */3 * * *'
+# ══════════════════════════════════════════════════════════════
+# ⏰ مواعيد البوستات (UTC) — كل 3 ساعات
+#
+#   UTC 00:00 → مصر 02:00 صباحاً
+#   UTC 03:00 → مصر 05:00 صباحاً
+#   UTC 06:00 → مصر 08:00 صباحاً
+#   UTC 09:00 → مصر 11:00 صباحاً
+#   UTC 12:00 → مصر 02:00 ظهراً
+#   UTC 15:00 → مصر 05:00 مساءً
+#   UTC 18:00 → مصر 08:00 مساءً
+#   UTC 21:00 → مصر 11:00 مساءً
+#
+#   (مصر = UTC+2 في الشتاء / UTC+3 في الصيف)
+#   المواعيد المكتوبة فوق للتوقيت الشتوي UTC+2
+# ══════════════════════════════════════════════════════════════
 
-  # ── تشغيل يدوي مع خيارات ──
+on:
+  schedule:
+    # ── البوست كل 3 ساعات بالظبط (8 مرات في اليوم) ──────────
+    - cron: '0 0 * * *'    # 12:00 AM  UTC  →  02:00 AM  مصر
+    - cron: '0 3 * * *'    # 03:00 AM  UTC  →  05:00 AM  مصر
+    - cron: '0 6 * * *'    # 06:00 AM  UTC  →  08:00 AM  مصر
+    - cron: '0 9 * * *'    # 09:00 AM  UTC  →  11:00 AM  مصر
+    - cron: '0 12 * * *'   # 12:00 PM  UTC  →  02:00 PM  مصر
+    - cron: '0 15 * * *'   # 03:00 PM  UTC  →  05:00 PM  مصر
+    - cron: '0 18 * * *'   # 06:00 PM  UTC  →  08:00 PM  مصر
+    - cron: '0 21 * * *'   # 09:00 PM  UTC  →  11:00 PM  مصر
+
+  # ── تشغيل يدوي مع خيارات ──────────────────────────────────
   workflow_dispatch:
     inputs:
       redbubble_url:
@@ -35,7 +58,7 @@ on:
         options: [funny, emotional, hard_sell, mixed]
 
       force_post:
-        description: '⚡ نشر حتى لو اتنشر مؤخراً'
+        description: '⚡ نشر حتى لو اتنشر مؤخراً (يتجاوز الـ cooldown)'
         required: false
         default: 'false'
         type: choice
@@ -45,6 +68,9 @@ permissions:
   contents: write
 
 jobs:
+  # ════════════════════════════════════════════════════════════
+  # 🚀 JOB 1 — البوست الأوتوماتيك
+  # ════════════════════════════════════════════════════════════
   smart-post:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -81,7 +107,6 @@ jobs:
           echo "index=$IDX" >> $GITHUB_OUTPUT
           echo "Rotation index: $IDX (hour=$HOUR)"
 
-      # تحديد المتغيرات بأمان للحالتين scheduled و manual
       - name: ⚙️ Set environment variables
         id: vars
         run: |
@@ -104,6 +129,8 @@ jobs:
 
           echo "--- Settings ---"
           echo "Trigger  : ${{ github.event_name }}"
+          echo "UTC Time : $(date -u '+%H:%M')"
+          echo "Egypt    : $(TZ='Africa/Cairo' date '+%H:%M %Z')"
           echo "URL      : ${RB_URL:-'(empty — will scan store)'}"
           echo "PostType : $POST_T"
           echo "Language : $LANG"
@@ -137,7 +164,7 @@ jobs:
           git config --local user.name  "github-actions[bot]"
           git add -f designs_history.json 2>/dev/null || true
           git add -f post_history.json    2>/dev/null || true
-          git add manual_products.json 2>/dev/null || true
+          git add manual_products.json    2>/dev/null || true
           if git diff --staged --quiet; then
             echo "ℹ️ No history changes"
           else
@@ -150,11 +177,13 @@ jobs:
         if: success()
         run: |
           echo "🎉 Posted! Trigger: ${{ github.event_name }}"
+          echo "🕐 UTC Time : $(date -u '+%Y-%m-%d %H:%M')"
+          echo "🕐 Egypt    : $(TZ='Africa/Cairo' date '+%Y-%m-%d %H:%M %Z')"
           [ -f designs_history.json ] && python -c "
           import json
           h = json.load(open('designs_history.json'))
-          print(f'Total posts: {h.get(chr(116)+chr(111)+chr(116)+chr(97)+chr(108)+chr(95)+chr(112)+chr(111)+chr(115)+chr(116)+chr(115),0)}')
-          print(f'Designs: {len(h.get(chr(100)+chr(101)+chr(115)+chr(105)+chr(103)+chr(110)+chr(115),{}))}')
+          print(f'Total posts: {h.get(\"total_posts\",0)}')
+          print(f'Designs tracked: {len(h.get(\"designs\",{}))}')
           "
 
       - name: ❌ Summary (Failure)
@@ -162,3 +191,57 @@ jobs:
         run: |
           echo "⚠️ Failed. Trigger: ${{ github.event_name }}"
           echo "Check FB_TOKEN and REDBUBBLE_STORE_URL in Secrets"
+
+  # ════════════════════════════════════════════════════════════
+  # 📋 JOB 2 — تحديث الكتالوج اليومي الساعة 7 صباحاً UTC
+  #            (= 09:00 صباحاً بتوقيت مصر الشتوي)
+  # ════════════════════════════════════════════════════════════
+  update-catalog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # ✅ يشتغل بس لو الوقت 07:00 UTC أو تشغيل يدوي
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'schedule' && startsWith(github.event.schedule, '0 7'))
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 1
+
+      - name: 🐍 Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 📋 Update all_designs.json
+        env:
+          REDBUBBLE_STORE_URL: ${{ secrets.REDBUBBLE_STORE_URL }}
+          FB_PAGE_ID:          ${{ secrets.FB_PAGE_ID }}
+          FB_TOKEN:            ${{ secrets.FB_TOKEN }}
+        run: |
+          echo "🕐 Running daily catalog update..."
+          echo "UTC : $(date -u '+%Y-%m-%d %H:%M')"
+          echo "Egypt: $(TZ='Africa/Cairo' date '+%Y-%m-%d %H:%M %Z')"
+          python update_catalog.py
+
+      - name: 💾 Save catalog to repository
+        if: always()
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name  "github-actions[bot]"
+          git add -f all_designs.json 2>/dev/null || true
+          if git diff --staged --quiet; then
+            echo "ℹ️ No catalog changes"
+          else
+            git commit -m "📋 Daily catalog update [skip ci]"
+            git push
+            echo "✅ Catalog saved!"
+          fi
