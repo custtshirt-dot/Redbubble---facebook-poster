@@ -103,7 +103,7 @@ def run_album_post(images, url, design_hint):
 
     # Blogger SEO Article
     try:
-        post_to_blogger(design_hint, url, images)
+        post_to_blogger(design_hint, url, images, target.get('tags', []))
     except Exception as e:
         print(f"⚠️ Blogger failed: {e}")
 
@@ -193,7 +193,7 @@ def run_reels_post(images, url, design_hint):
 
     # Blogger SEO Article
     try:
-        post_to_blogger(design_hint, url, images)
+        post_to_blogger(design_hint, url, images, target.get('tags', []))
     except Exception as e:
         print(f"⚠️ Blogger failed: {e}")
 
