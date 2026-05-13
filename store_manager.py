@@ -156,12 +156,17 @@ def load_manual_products() -> list:
 
 
 
+
+
 # ══════════════════════════════════════════════════════════════
 # 🔍 STORE SCRAPING
 # ══════════════════════════════════════════════════════════════
 
+DESIGNS_FILE = 'designs.txt'   # ✅ ملف الروابط — يتعدّل مباشرة على GitHub
+
+
 def _extract_username(store_url: str) -> str | None:
-    """استخراج اليوزرنيم — بيدعم /people/X و /@X و @X وبالاسم مباشرة"""
+    """استخراج اليوزرنيم — يدعم /people/X و /@X و @X"""
     store_url = store_url.strip()
     for pat in [
         r'redbubble\.com/people/([^/?#@\s]+)',
@@ -176,60 +181,42 @@ def _extract_username(store_url: str) -> str | None:
     return None
 
 
-def _scrape_via_atom_feed(username: str, seen_ids: set) -> list:
+def load_designs_from_txt() -> list:
     """
-    ✅ الطريقة الأموثق — Atom/RSS Feed عام ومش بيتحجب
-    URL: redbubble.com/people/{username}/works.atom
+    ✅ قراءة روابط التصاميم من designs.txt
+    كل سطر = رابط — السطور اللي بتبدأ بـ # تتجاهل
     """
-    import xml.etree.ElementTree as ET
+    if not os.path.exists(DESIGNS_FILE):
+        return []
 
-    feed_url = f"https://www.redbubble.com/people/{username}/works.atom"
     designs = []
+    seen = set()
 
-    try:
-        resp = requests.get(feed_url, headers=HEADERS, timeout=20)
-        if resp.status_code != 200:
-            print(f"   ⚠️ Atom feed HTTP {resp.status_code}")
-            return []
-
-        root = ET.fromstring(resp.content)
-        ns = {'atom': 'http://www.w3.org/2005/Atom'}
-
-        entries = root.findall('atom:entry', ns)
-        if not entries:
-            # جرب بدون namespace
-            entries = root.findall('entry')
-
-        for entry in entries:
-            # استخراج الرابط
-            link_el = (
-                entry.find('atom:link[@rel="alternate"]', ns) or
-                entry.find('atom:link', ns) or
-                entry.find('link')
-            )
-            url = (link_el.get('href') if link_el is not None else None) or ''
-            url = url.split('?')[0].strip()
-            if not url:
+    with open(DESIGNS_FILE, 'r', encoding='utf-8') as f:
+        for raw_line in f:
+            line = raw_line.strip()
+            if not line or line.startswith('#'):
                 continue
 
-            # استخراج الـ work_id
-            work_id = ''
-            id_el = entry.find('atom:id', ns) or entry.find('id')
-            if id_el is not None and id_el.text:
-                m = re.search(r'/(\d{6,})', id_el.text)
-                if m:
-                    work_id = m.group(1)
-            if not work_id:
-                m = re.search(r'/(\d{6,})', url)
-                work_id = m.group(1) if m else url[-12:]
-
-            if work_id in seen_ids:
+            # استخراج الـ URL لو في الأول فقط
+            url = line.split()[0].strip()
+            if not url.startswith('http'):
                 continue
-            seen_ids.add(work_id)
 
-            # استخراج العنوان
-            title_el = entry.find('atom:title', ns) or entry.find('title')
-            title = (title_el.text or '').strip()[:80] if title_el is not None else f"Design {work_id}"
+            url = url.split('?')[0]  # إزالة query params
+
+            # استخراج work_id من الرابط
+            m = re.search(r'/(\d{6,})', url)
+            work_id = m.group(1) if m else hashlib.md5(url.encode()).hexdigest()[:10]
+
+            if work_id in seen:
+                continue
+            seen.add(work_id)
+
+            # استخراج عنوان من الرابط
+            slug = url.rstrip('/').split('/')[-1]
+            slug = re.sub(r'^\d+-?', '', slug)
+            title = slug.replace('-', ' ').title()[:80] or f"Design {work_id}"
 
             designs.append({
                 'url':       url,
@@ -238,172 +225,97 @@ def _scrape_via_atom_feed(username: str, seen_ids: set) -> list:
                 'is_manual': False,
             })
 
-    except Exception as e:
-        print(f"   ⚠️ Atom feed error: {e}")
-
+    if designs:
+        print(f"📄 Loaded {len(designs)} designs from {DESIGNS_FILE}")
     return designs
-
-
-def _scrape_via_next_data(html: str, username: str, seen_ids: set) -> list:
-    """Fallback 1 — __NEXT_DATA__ JSON مدمج في الصفحة (Next.js)"""
-    found = []
-    m = re.search(
-        r'<script[^>]+id=["\'\"]__NEXT_DATA__["\'\"][^>]*>(.+?)</script>',
-        html, re.DOTALL
-    )
-    if not m:
-        return found
-    try:
-        raw = json.dumps(json.loads(m.group(1)))
-    except Exception:
-        return found
-
-    for wm in re.finditer(
-        r'/people/' + re.escape(username) + r'/works/(\d+)-([^"\'\\s/?#]+)',
-        raw
-    ):
-        work_id, slug = wm.group(1), wm.group(2)
-        if work_id not in seen_ids:
-            seen_ids.add(work_id)
-            found.append({
-                'url':       f"https://www.redbubble.com/people/{username}/works/{work_id}-{slug}",
-                'title':     slug.replace('-', ' ').title()[:80],
-                'work_id':   work_id,
-                'is_manual': False,
-            })
-
-    for wm in re.finditer(r'\"/shop/ap/(\d{7,})["\'\\s/?#]', raw):
-        work_id = wm.group(1)
-        if work_id not in seen_ids:
-            seen_ids.add(work_id)
-            found.append({
-                'url':       f"https://www.redbubble.com/shop/ap/{work_id}",
-                'title':     f"Design {work_id}",
-                'work_id':   work_id,
-                'is_manual': False,
-            })
-
-    return found
-
-
-def _scrape_via_html(html: str, username: str, seen_ids: set) -> list:
-    """Fallback 2 — raw HTML regex"""
-    found = []
-    for pat in [
-        re.compile(
-            r'href=["\'](/people/' + re.escape(username) +
-            r'/works/(\d+)-([^"\'?#\s]+))["\']', re.IGNORECASE
-        ),
-        re.compile(
-            r'href=["\'](/i/[^"\'?#\s]+/(\d{7,})[^"\'?#\s]*)["\']', re.IGNORECASE
-        ),
-    ]:
-        for m in pat.finditer(html):
-            g = m.groups()
-            work_path, work_id = g[0], g[1]
-            slug = g[2] if len(g) > 2 else work_path.rsplit('-', 1)[-1]
-            if work_id not in seen_ids:
-                seen_ids.add(work_id)
-                url = ('https://www.redbubble.com' + work_path
-                       if work_path.startswith('/') else work_path)
-                found.append({
-                    'url':       url.split('?')[0],
-                    'title':     slug.replace('-', ' ').title()[:80],
-                    'work_id':   work_id,
-                    'is_manual': False,
-                })
-    return found
 
 
 def scrape_store_designs(store_url: str, max_pages: int = 5) -> list:
     """
-    ✅ سكان الستور — 3 طرق بالترتيب:
-    1. Atom Feed  (الأموثق — مش بيتحجب)
-    2. __NEXT_DATA__ JSON
-    3. raw HTML regex
+    ✅ يجيب التصاميم من designs.txt أولاً (الأموثق من GitHub Actions)
+    لو الملف فاضي يحاول يسكان الستور
     """
-    import time
+    # ── الطريقة 1: designs.txt ───────────────────────────────
+    txt_designs = load_designs_from_txt()
+    if txt_designs:
+        return txt_designs
 
-    username = _extract_username(store_url)
+    # ── الطريقة 2: سكان الستور (لو designs.txt فاضي) ─────────
+    username = _extract_username(store_url) if store_url else None
     if not username:
-        print(f"⚠️ Cannot parse username from: {store_url}")
+        print("⚠️ designs.txt فاضي و REDBUBBLE_STORE_URL مش متعيّن")
+        print("   → افتح designs.txt على GitHub وحط روابط تصاميمك")
         return []
 
-    print(f"\n🏪 Scanning Redbubble store: @{username}")
+    print(f"\n🏪 designs.txt empty — scanning store: @{username}")
     designs = []
     seen_ids = set()
 
-    # ── الطريقة 1: Atom Feed ─────────────────────────────────
-    print(f"   📡 Trying Atom feed ...", end=' ', flush=True)
-    atom_designs = _scrape_via_atom_feed(username, seen_ids)
-    if atom_designs:
-        designs.extend(atom_designs)
-        print(f"✅ {len(atom_designs)} designs via Atom feed")
-        print(f"🎨 Store scan complete: {len(designs)} total designs found\n")
-        return designs
-    else:
-        print(f"⚠️ Atom feed empty — trying HTML scan")
-
-    # ── الطريقة 2 & 3: HTML scraping ─────────────────────────
     scan_headers = {
         **HEADERS,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept': 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
         'Accept-Encoding': 'gzip, deflate, br',
         'Upgrade-Insecure-Requests': '1',
         'Sec-Fetch-Dest': 'document',
         'Sec-Fetch-Mode': 'navigate',
         'Sec-Fetch-Site': 'none',
-        'Cache-Control': 'max-age=0',
     }
 
+    import time
     for page in range(1, max_pages + 1):
         page_url = (
             f"https://www.redbubble.com/people/{username}/shop"
             f"?page={page}&sortOrder=recent"
         )
         print(f"   📄 Page {page}/{max_pages} ...", end=' ', flush=True)
-
         try:
             resp = requests.get(page_url, headers=scan_headers, timeout=25)
-
-            if resp.status_code == 429:
-                wait = int(resp.headers.get('Retry-After', 60))
-                print(f"⏳ Rate limited — waiting {wait}s")
-                time.sleep(wait)
-                continue
-            if resp.status_code == 404:
-                print(f"❌ Store not found")
-                break
             if resp.status_code != 200:
                 print(f"⚠️ HTTP {resp.status_code}")
                 break
 
             html = resp.text
+            found = []
 
-            found = _scrape_via_next_data(html, username, seen_ids)
-            method = "Next.js"
-            if not found:
-                found = _scrape_via_html(html, username, seen_ids)
-                method = "HTML"
+            # __NEXT_DATA__
+            m = re.search(
+                r'<script[^>]+id=["\']__NEXT_DATA__["\'][^>]*>(.+?)</script>',
+                html, re.DOTALL
+            )
+            if m:
+                try:
+                    raw = json.dumps(json.loads(m.group(1)))
+                    for wm in re.finditer(
+                        r'/people/' + re.escape(username) + r'/works/(\d+)-([^"\'\\s/?#]+)',
+                        raw
+                    ):
+                        wid, slug = wm.group(1), wm.group(2)
+                        if wid not in seen_ids:
+                            seen_ids.add(wid)
+                            found.append({
+                                'url': f"https://www.redbubble.com/people/{username}/works/{wid}-{slug}",
+                                'title': slug.replace('-', ' ').title()[:80],
+                                'work_id': wid,
+                                'is_manual': False,
+                            })
+                except Exception:
+                    pass
 
             if found:
                 designs.extend(found)
-                print(f"✅ {len(found)} designs ({method}) — total: {len(designs)}")
+                print(f"✅ {len(found)} designs")
             else:
-                print(f"⚠️ 0 designs — stopping")
+                print(f"⚠️ 0 designs — Redbubble may be blocking GitHub Actions IPs")
+                print(f"\n💡 الحل: افتح designs.txt على GitHub وحط روابط تصاميمك")
                 break
 
             if page < max_pages:
                 time.sleep(2)
 
-        except requests.exceptions.Timeout:
-            print(f"⏱️ Timeout")
-            break
         except Exception as e:
             print(f"❌ {e}")
             break
 
-    print(f"🎨 Store scan complete: {len(designs)} total designs found\n")
     return designs
 
 
