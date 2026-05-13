@@ -184,7 +184,7 @@ def _extract_username(store_url: str) -> str | None:
 def load_designs_from_txt() -> list:
     """
     ✅ قراءة روابط التصاميم من designs.txt
-    كل سطر = رابط — السطور اللي بتبدأ بـ # تتجاهل
+    الشكل: URL | tag1, tag2, tag3
     """
     if not os.path.exists(DESIGNS_FILE):
         return []
@@ -198,14 +198,21 @@ def load_designs_from_txt() -> list:
             if not line or line.startswith('#'):
                 continue
 
-            # استخراج الـ URL لو في الأول فقط
-            url = line.split()[0].strip()
+            # ✅ فصل الرابط عن التاجات بـ |
+            if '|' in line:
+                parts = line.split('|', 1)
+                url_part = parts[0].strip()
+                tags = [t.strip() for t in parts[1].split(',') if t.strip()]
+            else:
+                url_part = line.strip()
+                tags = []
+
+            url = url_part.split()[0].strip()
             if not url.startswith('http'):
                 continue
 
-            url = url.split('?')[0]  # إزالة query params
+            url = url.split('?')[0]
 
-            # استخراج work_id من الرابط
             m = re.search(r'/(\d{6,})', url)
             work_id = m.group(1) if m else hashlib.md5(url.encode()).hexdigest()[:10]
 
@@ -213,15 +220,15 @@ def load_designs_from_txt() -> list:
                 continue
             seen.add(work_id)
 
-            # استخراج عنوان من الرابط
             slug = url.rstrip('/').split('/')[-1]
             slug = re.sub(r'^\d+-?', '', slug)
-            title = slug.replace('-', ' ').title()[:80] or f"Design {work_id}"
+            title = slug.replace('-', ' ').title()[:80] or (tags[0] if tags else f"Design {work_id}")
 
             designs.append({
                 'url':       url,
                 'title':     title,
                 'work_id':   work_id,
+                'tags':      tags,
                 'is_manual': False,
             })
 
