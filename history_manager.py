@@ -9,7 +9,7 @@ import hashlib
 from datetime import datetime, timedelta
 
 HISTORY_FILE = 'post_history.json'
-COOLDOWN_HOURS = 3   # نفس التصميم مش هيتنشر تاني قبل 3 ساعات
+COOLDOWN_HOURS = 24   # ✅ تم التعديل: نفس التصميم مش هيتنشر تاني قبل 24 ساعة
 
 
 def load_history() -> dict:
@@ -36,35 +36,35 @@ def url_hash(url: str) -> str:
     return hashlib.md5(url.strip().encode()).hexdigest()[:12]
 
 
-def is_duplicate(url: str, post_type: str = 'album',
+def is_duplicate(url: str, post_type: str = 'any',
                  cooldown_hours: int = COOLDOWN_HOURS) -> bool:
     """
-    هل التصميم ده اتنشر مؤخراً؟
-    بيتحقق بفترة COOLDOWN_HOURS (مش أيام زي الأصلي)
+    ✅ هل التصميم ده اتنشر مؤخراً بأي نوع بوست؟
+    بيتحقق بفترة COOLDOWN_HOURS (24 ساعة افتراضياً)
     """
     if os.getenv('IGNORE_DUPLICATES', 'false').lower() == 'true':
         print("⚠️ Duplicate check IGNORED (force_post active)")
         return False
 
     history = load_history()
-    key = f"{url_hash(url)}_{post_type}"
+    url_h = url_hash(url)
+    now = datetime.now()
+    cooldown = timedelta(hours=cooldown_hours)
 
-    if key not in history:
-        return False
-
-    try:
-        last_post = datetime.fromisoformat(history[key]['date'])
-        cooldown = timedelta(hours=cooldown_hours)
-
-        if datetime.now() - last_post < cooldown:
-            hours_passed = (datetime.now() - last_post).seconds // 3600
-            hours_left = cooldown_hours - hours_passed
-            print(f"⚠️ Posted {hours_passed}h ago — {hours_left}h cooldown remaining")
-            return True
-
-    except Exception as e:
-        print(f"⚠️ Date parse error: {e}")
-        return False
+    # ✅ بيتحقق من كل الأنواع مش نوع واحد بس
+    for key, entry in history.items():
+        if not key.startswith(url_h):
+            continue
+        try:
+            last_post = datetime.fromisoformat(entry['date'])
+            if now - last_post < cooldown:
+                hours_passed = int((now - last_post).total_seconds() // 3600)
+                hours_left = cooldown_hours - hours_passed
+                print(f"⏸️  Design posted {hours_passed}h ago — {hours_left}h cooldown remaining (type: {entry.get('type','?')})")
+                return True
+        except Exception as e:
+            print(f"⚠️ Date parse error: {e}")
+            continue
 
     return False
 
