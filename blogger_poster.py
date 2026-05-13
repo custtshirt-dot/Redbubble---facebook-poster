@@ -1,325 +1,395 @@
 """
-📝 Blogger Poster - Professional SEO Article with 12+ Images (using original URLs)
-- يستخدم روابط الصور الأصلية من Redbubble (تظهر مباشرة)
-- محتوى يزيد عن 500 كلمة (800-1200)
-- 12 صورة على الأقل لمنتجات متعددة
-- معايير SEO كاملة
-- إضافة التاجات الخاصة بالتصميم
+📝 Blogger Poster — ينشر مقالة SEO كاملة على Blogger
+✅ الصور بتترفع على Blogger
+✅ المقالة أكتر من 500 كلمة
+✅ 12 صورة منتج على الأقل
+✅ SEO كامل
+✅ التاجات من designs.txt
 """
-import os
-import json
-import re
-import requests
+import os, re, json, base64, requests
 from datetime import datetime
-from templates import get_hashtags
 
-BLOGGER_BLOG_ID = os.getenv('BLOGGER_BLOG_ID', '')
-BLOGGER_CLIENT_ID = os.getenv('BLOGGER_CLIENT_ID', '')
+BLOGGER_BLOG_ID       = os.getenv('BLOGGER_BLOG_ID', '')
+BLOGGER_CLIENT_ID     = os.getenv('BLOGGER_CLIENT_ID', '')
 BLOGGER_CLIENT_SECRET = os.getenv('BLOGGER_CLIENT_SECRET', '')
 BLOGGER_REFRESH_TOKEN = os.getenv('BLOGGER_REFRESH_TOKEN', '')
-GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
-GROQ_MODEL = 'llama-3.3-70b-versatile'
+GROQ_API_KEY          = os.getenv('GROQ_API_KEY', '')
+GROQ_MODEL            = 'llama-3.3-70b-versatile'
+MIN_IMAGES            = 12
 
-HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-}
 
-# ============================================================
-# 🔐 AUTHENTICATION
-# ============================================================
+# ══════════════════════════════════════════════════════════════
+# 🔑 AUTH
+# ══════════════════════════════════════════════════════════════
 
 def get_access_token() -> str | None:
     if not all([BLOGGER_CLIENT_ID, BLOGGER_CLIENT_SECRET, BLOGGER_REFRESH_TOKEN]):
-        print("⚠️ Blogger credentials missing — skipping")
+        print("⚠️ Blogger credentials missing")
         return None
-    resp = requests.post(
-        'https://oauth2.googleapis.com/token',
-        data={
-            'client_id': BLOGGER_CLIENT_ID,
-            'client_secret': BLOGGER_CLIENT_SECRET,
-            'refresh_token': BLOGGER_REFRESH_TOKEN,
-            'grant_type': 'refresh_token',
-        },
-        timeout=15
-    )
-    data = resp.json()
-    token = data.get('access_token')
-    if not token:
-        print(f"❌ Blogger auth failed: {data.get('error_description', data)}")
-    return token
+    try:
+        resp = requests.post(
+            'https://oauth2.googleapis.com/token',
+            data={
+                'client_id':     BLOGGER_CLIENT_ID,
+                'client_secret': BLOGGER_CLIENT_SECRET,
+                'refresh_token': BLOGGER_REFRESH_TOKEN,
+                'grant_type':    'refresh_token',
+            },
+            timeout=15
+        )
+        token = resp.json().get('access_token')
+        if not token:
+            print(f"❌ Auth failed: {resp.json().get('error_description','')}")
+        return token
+    except Exception as e:
+        print(f"❌ Auth error: {e}")
+        return None
 
 
-# ============================================================
-# 🖼️ IMAGE HANDLING (استخدام الرابط الأصلي مباشرة)
-# ============================================================
+# ══════════════════════════════════════════════════════════════
+# 🖼️ IMAGES
+# ══════════════════════════════════════════════════════════════
 
-def get_unique_images(images: list, max_count: int = 12) -> list:
-    """إرجاع قائمة بالصور الفريدة (حسب الرابط) - أول max_count صورة"""
-    unique = []
+def fetch_product_images(product_url: str, max_images: int = 20) -> list:
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': 'https://www.redbubble.com/',
+    }
+    image_urls = []
     seen = set()
-    for img in images:
-        if img not in seen:
-            seen.add(img)
-            unique.append(img)
-        if len(unique) >= max_count:
+    try:
+        resp = requests.get(product_url, headers=headers, timeout=20)
+        html = resp.text
+
+        patterns = [
+            r'content="(https://ih\d+\.redbubble\.net/[^"]+)"',
+            r'"(https://ih\d+\.redbubble\.net/image\.[^"]+)"',
+            r'src="(https://ih\d+\.redbubble\.net/[^"]+)"',
+        ]
+        for pat in patterns:
+            for m in re.finditer(pat, html):
+                url = m.group(1).split("?")[0]
+                if url not in seen:
+                    seen.add(url)
+                    image_urls.append(url)
+
+        nd = re.search(r'<script[^>]+id=["\']__NEXT_DATA__["\'][^>]*>(.+?)</script>', html, re.DOTALL)
+        if nd:
+            try:
+                raw = json.dumps(json.loads(nd.group(1)))
+                for m in re.finditer(r'"(https://ih\d+\.redbubble\.net/image\.[^"]+)"', raw):
+                    url = m.group(1).split("?")[0]
+                    if url not in seen:
+                        seen.add(url)
+                        image_urls.append(url)
+            except Exception:
+                pass
+
+    except Exception as e:
+        print(f"   ⚠️ Image fetch error: {e}")
+
+    print(f"   🖼️  Found {len(image_urls)} images")
+    return image_urls[:max_images]
+
+
+def download_b64(img_url: str):
+    try:
+        resp = requests.get(img_url, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://www.redbubble.com/"}, timeout=15)
+        if resp.status_code == 200:
+            ct = resp.headers.get("Content-Type", "image/jpeg")
+            mime = ct.split(";")[0].strip()
+            if "png" in mime: mime = "image/png"
+            elif "webp" in mime: mime = "image/webp"
+            else: mime = "image/jpeg"
+            return base64.b64encode(resp.content).decode("utf-8"), mime
+    except Exception:
+        pass
+    return None
+
+
+# Picasa API removed — using base64 embedding instead
+
+
+def prepare_images(token: str, product_url: str, design_hint: str) -> list:
+    """
+    ✅ يحمّل الصور كـ base64 — Blogger بيحوّلها لصور مرفوعة على Google تلقائياً
+    """
+    print(f"   📥 Fetching & embedding images...")
+    raw_urls = fetch_product_images(product_url, max_images=20)
+    if not raw_urls:
+        return []
+
+    final = []
+    for i, img_url in enumerate(raw_urls[:MIN_IMAGES + 4]):
+        result = download_b64(img_url)
+        if result:
+            b64_data, mime = result
+            # ✅ data URI — Blogger بيرفعها على Google تلقائياً لما ينشر المقالة
+            data_uri = f"data:{mime};base64,{b64_data}"
+            final.append(data_uri)
+            print(f"      ✅ Image {i+1} embedded as base64")
+        else:
+            # fallback: رابط أصلي لو التحميل فشل
+            final.append(img_url)
+            print(f"      ⚠️ Image {i+1} using original URL (download failed)")
+
+        if len(final) >= MIN_IMAGES + 4:
             break
-    # إذا كان العدد أقل من المطلوب، نكرر الصور الموجودة
-    while len(unique) < max_count and unique:
-        unique.extend(unique[:max_count - len(unique)])
-    return unique[:max_count]
 
-# ============================================================
-# 🤖 AI - GENERATE LONG SEO ARTICLE (800-1200 words)
-# ============================================================
+    print(f"   🖼️  Ready: {len(final)} images for article")
+    return final
 
-def generate_seo_article(design_hint: str, product_url: str, image_urls: list) -> dict:
-    """
-    توليد مقالة طويلة (800-1200 كلمة) مع 12 صورة (روابط أصلية)
-    """
-    # التأكد من وجود 12 صورة فريدة على الأقل
-    images = get_unique_images(image_urls, 12)
-    print(f"🖼️ Using {len(images)} unique product images for the article")
 
-    # الهاشتاجات المناسبة (للتاجات في Blogger)
-    hashtags_str = get_hashtags(product_url, design_hint)
-    tags_list = re.findall(r'#(\w+)', hashtags_str)
-    tags_list = list(dict.fromkeys(tags_list))[:10]  # 10 فريد
-    
-    # إضافة تاجات أساسية
-    if 'Redbubble' not in tags_list:
-        tags_list.append('Redbubble')
-    if 'CustomTshirts' not in tags_list:
-        tags_list.append('CustomTshirts')
-    if 'CatLovers' not in tags_list and 'cat' in design_hint.lower():
-        tags_list.append('CatLovers')
+# ══════════════════════════════════════════════════════════════
+# 🤖 AI ARTICLE — 500+ words
+# ══════════════════════════════════════════════════════════════
 
-    # بناء معرض الصور (12 صورة) - نضعه في بداية المقال أو موزعاً
-    gallery_html = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin:30px 0;">'
-    for i, img_url in enumerate(images):
-        gallery_html += f'<img src="{img_url}" alt="{design_hint} - product option {i+1}" style="width:100%;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);" loading="lazy" />'
-    gallery_html += '</div>'
+def generate_article(design_hint: str, product_url: str, user_tags: list) -> dict:
+    tags_str = ", ".join(user_tags) if user_tags else design_hint
 
-    # إذا كان هناك Groq API، نطلب منه مقالاً طويلاً مع تعليمات واضحة لاستخدام الصور
-    if GROQ_API_KEY:
-        prompt = f"""You are an expert SEO content writer for print-on-demand products.
+    prompt = f"""You are an expert SEO content writer for a Redbubble shop.
 
-Write a COMPLETE, LONG blog article (minimum 850 words, target 1000-1200 words) about this Redbubble design:
-
-DESIGN THEME: "{design_hint}"
+Write a FULL SEO article — MUST be 500+ words total.
+DESIGN: "{design_hint}"
 PRODUCT URL: {product_url}
+KEYWORDS: {tags_str}
 
-The article MUST include:
-- A catchy SEO title (50-60 chars)
-- Meta description (150-160 chars)
-- H1, H2, H3 headings
-- Keyword "{design_hint}" used naturally 5-8 times
-- Introduction (150 words) - hook reader, explain the design's appeal
-- Section "Design Inspiration" (150 words) - story behind it
-- Section "12 Amazing Products You Can Get" (200 words) - describe 12 different products (t-shirt, sticker, mug, hoodie, phone case, art print, tote bag, pillow, sweatshirt, kids shirt, notebook, magnet). For each product, write one sentence.
-- Section "Perfect Gift for Cat Lovers" (150 words)
-- Section "Quality & Worldwide Shipping" (100 words)
-- Section "What Customers Say" (100 words) - 3 fake positive reviews
-- FAQ section with 4 questions (shipping, sizing, returns, material)
-- Conclusion + CTA (100 words) urging to buy now
+Respond ONLY with valid JSON — no markdown, no extra text:
+{{
+  "seo_title": "SEO title 50-60 chars with main keyword",
+  "meta_description": "Meta description 150-160 chars",
+  "h1": "H1 heading keyword-rich, different from title",
+  "labels": ["tag1","tag2","tag3","tag4","tag5","tag6","tag7","tag8"],
+  "intro": "4 sentences introduction with main keyword in first sentence. Hook the reader.",
+  "section1_h2": "H2 about the design",
+  "section1_body": "5 sentences about what makes this design special, its appeal, humor or meaning.",
+  "section2_h2": "H2 about available products",
+  "section2_body": "5 sentences about t-shirts, hoodies, stickers, mugs, phone cases, tote bags, pillows, art prints, leggings. Quality, worldwide shipping.",
+  "section3_h2": "H2 perfect gift idea",
+  "section3_body": "5 sentences about who this is perfect for, occasions, why it will delight them.",
+  "section4_h2": "H2 why choose Redbubble",
+  "section4_body": "4 sentences about quality, satisfaction guarantee, independent artists, secure checkout.",
+  "section5_h2": "H2 how to order",
+  "section5_body": "4 sentences simple steps to order, fast shipping, multiple payment options.",
+  "faq_q1": "FAQ about the design or products",
+  "faq_a1": "3 sentence answer",
+  "faq_q2": "FAQ about shipping",
+  "faq_a2": "3 sentence answer",
+  "faq_q3": "FAQ about gifts or sizing",
+  "faq_a3": "3 sentence answer",
+  "conclusion": "4 sentences conclusion with strong CTA and urgency."
+}}
 
-IMPORTANT: I will insert the product images gallery myself. You don't need to add images. Just write text.
+Rules: keyword in title+H1+intro+3 sections. Tone: enthusiastic, persuasive. NEVER mention discount codes."""
 
-Return ONLY valid JSON with:
-{{"title": "...", "meta_description": "...", "content_html": "..."}}
-
-The content_html should be HTML with <h1>, <h2>, <p>, <ul>, etc. No markdown.
-"""
-        try:
-            resp = requests.post(
-                'https://api.groq.com/openai/v1/chat/completions',
-                headers={'Authorization': f'Bearer {GROQ_API_KEY}', 'Content-Type': 'application/json'},
-                json={
-                    'model': GROQ_MODEL,
-                    'temperature': 0.75,
-                    'max_tokens': 3000,
-                    'messages': [
-                        {'role': 'system', 'content': 'You are an SEO blogger. Always return valid JSON. Write long, detailed articles.'},
-                        {'role': 'user', 'content': prompt}
-                    ]
-                },
-                timeout=60
-            )
-            raw = resp.json()['choices'][0]['message']['content'].strip()
-            raw = re.sub(r'```json\s*', '', raw)
-            raw = re.sub(r'```\s*', '', raw)
-            article = json.loads(raw)
-            html_content = article.get('content_html', '')
-            
-            # دمج معرض الصور في بداية المقال (أو يمكن وضعه في المنتصف)
-            # نضع المعرض بعد المقدمة مباشرة
-            # نبحث عن نهاية الفقرة الأولى أو نضيفه بعد أول <p>
-            if '<p>' in html_content:
-                # نضيف بعد أول فقرة
-                first_p_end = html_content.find('</p>') + 4
-                html_content = html_content[:first_p_end] + gallery_html + html_content[first_p_end:]
-            else:
-                html_content = gallery_html + html_content
-            
-            word_count = len(re.findall(r'\w+', html_content))
-            print(f"📊 AI generated approx {word_count} words")
-            
-            return {
-                'title': article.get('title', f'{design_hint} - Best Gift on Redbubble'),
-                'content': html_content,
-                'labels': tags_list,
-                'meta_description': article.get('meta_description', f'Discover {design_hint} design on Redbubble. Available on 70+ products. Perfect unique gift!'),
-            }
-        except Exception as e:
-            print(f"⚠️ AI failed: {e}. Using fallback template.")
-            return _basic_long_article(design_hint, product_url, gallery_html, tags_list)
-    else:
-        return _basic_long_article(design_hint, product_url, gallery_html, tags_list)
+    try:
+        resp = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+            json={
+                "model": GROQ_MODEL, "temperature": 0.75, "max_tokens": 2500,
+                "messages": [
+                    {"role": "system", "content": "Respond ONLY with valid JSON. No markdown. No explanation."},
+                    {"role": "user", "content": prompt}
+                ],
+            },
+            timeout=45
+        )
+        raw = resp.json()["choices"][0]["message"]["content"].strip()
+        raw = raw.replace("```json","").replace("```","").strip()
+        return json.loads(raw)
+    except Exception as e:
+        print(f"   ⚠️ AI failed: {e} — using fallback")
+        return _fallback(design_hint, product_url, user_tags)
 
 
-def _basic_long_article(design_hint, url, gallery_html, tags_list):
-    """قالب طويل جداً (800-1000 كلمة) دون AI"""
-    
-    # قائمة المنتجات الـ 12
-    products_list = [
-        "Premium T-Shirt", "Glossy Sticker", "Ceramic Mug", "Soft Hoodie", "Phone Case",
-        "Art Print", "Tote Bag", "Throw Pillow", "Sweatshirt", "Kids T-Shirt", "Spiral Notebook", "Magnet"
-    ]
-    products_desc = "".join([f"<li><strong>{p}</strong> – This design looks fantastic on {p}. Perfect for daily use.</li>" for p in products_list])
-    
-    faq = """
-    <h3>❓ Frequently Asked Questions</h3>
-    <div style="background:#f9f9f9;padding:20px;border-radius:12px;">
-    <p><strong>Q: What sizes are available?</strong><br>A: Most apparel comes in sizes XS to 5XL.</p>
-    <p><strong>Q: How long does shipping take?</strong><br>A: Worldwide shipping typically takes 7-14 business days.</p>
-    <p><strong>Q: Can I return or exchange?</strong><br>A: Yes! 30-day returns on most products.</p>
-    <p><strong>Q: Is the design fade-resistant?</strong><br>A: Yes, high-quality inks that last.</p>
-    </div>
-    """
-    
-    reviews = """
-    <div style="background:#eef2ff;padding:20px;border-radius:12px;margin:20px 0;">
-    <h3>⭐ What Customers Are Saying</h3>
-    <p><strong>⭐⭐⭐⭐⭐ Sarah M.</strong> – "I bought this for my sister who loves cats. She burst out laughing! Amazing quality."</p>
-    <p><strong>⭐⭐⭐⭐⭐ James P.</strong> – "Sticker arrived quickly and looks exactly like the picture. 10/10."</p>
-    <p><strong>⭐⭐⭐⭐⭐ Emily R.</strong> – "The hoodie is so soft and the print hasn't cracked after several washes."</p>
-    </div>
-    """
-    
-    content = f"""
-    <div style="font-family: 'Segoe UI', Roboto, sans-serif; max-width: 900px; margin: 0 auto; line-height: 1.7; color: #1a1a1a;">
-        
-        <h1 style="font-size: 2.2em; border-left: 5px solid #e74c3c; padding-left: 20px;">{design_hint} – The Ultimate Unique Gift for Cat Lovers</h1>
-        
-        <p>Are you searching for a gift that truly stands out? Look no further. The <strong>{design_hint}</strong> design is taking the Redbubble community by storm. Whether you're a proud cat mom, a funny pet parent, or just someone who appreciates clever art, this design will bring a smile to your face every day.</p>
-        
-        <p>In this article, we'll explore everything about this amazing artwork – from its inspiration to the 70+ products you can customize. Plus, we'll show you why thousands of customers have already made it their favorite.</p>
-        
-        {gallery_html}
-        
-        <h2>🎨 Behind the Design</h2>
-        <p>The <strong>{design_hint}</strong> design was created by an independent artist who loves combining humor with heart. Every detail is hand-drawn and optimized for vibrant, long-lasting prints. This design celebrates the unique personality of tripod cats – resilient, funny, and full of love.</p>
-        
-        <h2>📦 Available on 12+ Amazing Products</h2>
-        <p>You can get this design on almost anything! Here are the top 12 products customers are buying right now:</p>
-        <ul style="columns:2; list-style-type: none; padding-left: 0;">
-            {products_desc}
-        </ul>
-        
-        <h2>🎁 The Perfect Gift for Any Occasion</h2>
-        <p>Need a gift for a cat-loving friend? Mother's Day around the corner? Or maybe you just want to treat yourself? The <strong>{design_hint}</strong> design fits every occasion. It's thoughtful, unique, and shows you really care about their personality.</p>
-        
-        {reviews}
-        
-        <h2>🚚 Quality & Worldwide Shipping</h2>
-        <p>All products are made on demand using eco-friendly materials and state-of-the-art printing technology. Colors stay bright, fabrics remain soft, and every item undergoes quality checks. Redbubble ships to over 180 countries.</p>
-        
-        {faq}
-        
-        <h2>📝 Final Thoughts – Don't Miss Out</h2>
-        <p>Trends come and go, but a design that makes you smile? That's forever. The <strong>{design_hint}</strong> has been featured in multiple gift guides and keeps selling out. Act now before your favorite product is gone.</p>
-        
-        <div style="background: #ffebee; border-radius: 16px; padding: 25px; text-align: center; margin: 30px 0;">
-            <p style="font-size: 1.4em; margin: 0 0 10px;">✨ Ready to get yours?</p>
-            <a href="{url}" target="_blank" style="background: #e74c3c; color: white; padding: 14px 32px; text-decoration: none; font-weight: bold; border-radius: 40px; display: inline-block;">🛒 SHOP NOW ON REDBUBBLE</a>
-            <p style="margin-top: 15px; font-size: 0.9em;">Free worldwide shipping on orders over $50 | 30-day returns</p>
-        </div>
-        
-        <hr>
-        <p style="color: #666; text-align: center;">#Redbubble #CustomGifts #{design_hint.replace(' ', '')} #CatLovers</p>
-    </div>
-    """
-    word_count = len(re.findall(r'\w+', content))
-    print(f"📊 Fallback article: {word_count} words")
+def _fallback(design_hint: str, url: str, tags: list) -> dict:
+    d = design_hint
     return {
-        'title': f'{design_hint} – Funny Cat Design on T-Shirts, Stickers & More',
-        'content': content,
-        'labels': tags_list,
-        'meta_description': f'Check out the {design_hint} design on Redbubble. Available on 70+ products with worldwide shipping. Perfect gift!',
+        "seo_title": f"{d} — Unique Design on Redbubble",
+        "meta_description": f"Discover the {d} design on Redbubble. T-shirts, stickers, mugs and more. Ships worldwide!",
+        "h1": f"{d} — Shop This Unique Design Now",
+        "labels": tags[:8] if tags else ["redbubble","design","gift","print on demand"],
+        "intro": f"Looking for a unique {d} design? This amazing design is available on dozens of products — from t-shirts and hoodies to stickers, mugs, phone cases and much more. Whether you're treating yourself or searching for the perfect gift, you've found exactly what you need. Read on to discover everything this incredible design has to offer.",
+        "section1_h2": f"About The {d} Design",
+        "section1_body": f"The {d} design is a one-of-a-kind piece of art that instantly stands out. It captures a unique aesthetic that resonates deeply with people who love to express their personality through creative design. Every detail has been thoughtfully crafted, from the colors to the concept, making it both eye-catching and memorable. Whether displayed on a t-shirt in public or a mug at your desk, this design always starts conversations. It's the kind of design that makes you smile every single time you see it.",
+        "section2_h2": "Available On Dozens of Products",
+        "section2_body": f"The {d} design is printed on a huge range of high-quality products including t-shirts, hoodies, sweatshirts, stickers, mugs, phone cases, tote bags, pillows, art prints, leggings, notebooks, masks, and much more. All items are produced using premium materials and state-of-the-art printing technology that ensures vivid, long-lasting results. Redbubble ships worldwide, so no matter where you are, this design can be delivered right to your door. The products are made on demand, ensuring freshness and quality with every single order. Explore the full range and find your perfect product.",
+        "section3_h2": "The Perfect Gift For Any Occasion",
+        "section3_body": f"Struggling to find a gift that's truly unique? The {d} design makes an unforgettable present for birthdays, Christmas, Valentine's Day, graduations, anniversaries, and any other special occasion you can think of. It shows the recipient that you took time to find something genuinely personal and creative, not just another generic gift. Anyone who receives this will immediately know how thoughtful and original the choice was. It's the kind of gift that gets remembered and talked about long after the occasion has passed.",
+        "section4_h2": "Why Shop On Redbubble",
+        "section4_body": "Redbubble is one of the world's leading print-on-demand marketplaces, trusted by millions of customers globally. Every purchase directly supports independent artists and creatives, making your buy meaningful beyond the product itself. Products come backed by a satisfaction guarantee — if something isn't right, Redbubble's customer service team will make it right. With secure checkout, multiple payment options, and fast worldwide shipping, the shopping experience is smooth and worry-free from start to finish.",
+        "section5_h2": "How To Order Your Design",
+        "section5_body": f"Ordering your {d} design is quick and straightforward. Simply click the link to visit the product page on Redbubble, browse the available product types, and select the one that suits you best. Choose your preferred size, color, and style if applicable, then add it to your cart and proceed to checkout. Payment is secure and multiple options are available including credit card and PayPal. Your order will be printed fresh and shipped directly to you, typically arriving within a few business days.",
+        "faq_q1": f"What products is the {d} design available on?",
+        "faq_a1": f"The {d} design is available on t-shirts, hoodies, sweatshirts, stickers, mugs, phone cases, tote bags, art prints, pillows, leggings, notebooks, and many more products. The full range can be viewed on the Redbubble product page. New product types are added regularly, so check back often for more options.",
+        "faq_q2": "Does Redbubble ship internationally?",
+        "faq_a2": "Yes, Redbubble ships to most countries worldwide. Shipping times and costs vary depending on your location and the shipping method selected at checkout. Standard and express shipping options are typically available, and orders can be tracked once dispatched.",
+        "faq_q3": f"Is the {d} design a good gift?",
+        "faq_a3": f"Absolutely — the {d} design makes an excellent gift for anyone who appreciates unique, creative products. It's available on practical everyday items that the recipient will use and enjoy regularly. The design is conversation-starting and memorable, making it a gift that truly stands out from the crowd.",
+        "conclusion": f"The {d} design is more than just a product — it's a statement of personality, creativity, and individuality. Whether you're buying for yourself or searching for that perfect gift, this design delivers on every level. Don't wait — click the link below to visit the Redbubble page, explore all available products, and order yours today. Join the thousands of happy customers who have made this design a part of their everyday life.",
     }
 
 
-# ============================================================
-# 📤 PUBLISH TO BLOGGER
-# ============================================================
+# ══════════════════════════════════════════════════════════════
+# 🏗️ BUILD HTML
+# ══════════════════════════════════════════════════════════════
 
-def post_to_blogger(design_hint: str, product_url: str, images: list) -> dict:
-    """ينشر مقالة طويلة مع 12 صورة (باستخدام روابط الصور الأصلية)"""
+def build_html(data: dict, design_hint: str, product_url: str, images: list) -> str:
+    def img(url, alt, n):
+        return f'''<div style="text-align:center;margin:22px 0;">
+  <img src="{url}" alt="{alt} - {n}" title="{alt}"
+       style="max-width:100%;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.12);" />
+</div>'''
+
+    def get(idx):
+        return img(images[idx], design_hint, idx+1) if idx < len(images) else ""
+
+    # Grid آخر 6 صور
+    grid = ""
+    if len(images) >= 7:
+        cells = "".join(
+            f'''<div style="flex:1;min-width:110px;max-width:190px;padding:4px;">
+  <img src="{images[i]}" alt="{design_hint} product {i+1}"
+       style="width:100%;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,0.1);" />
+</div>''' for i in range(6, min(12, len(images)))
+        )
+        grid = f'''<div style="margin:24px 0;">
+  <p style="text-align:center;color:#666;font-size:0.9em;margin-bottom:10px;">
+    🛍️ Available on many products
+  </p>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">{cells}</div>
+</div>'''
+
+    faq = f'''<div style="background:#f8f9fa;border-radius:8px;padding:24px;margin:30px 0;">
+  <h2 style="color:#2c3e50;margin-top:0;">❓ Frequently Asked Questions</h2>
+  <h3 style="color:#34495e;font-size:1em;">Q: {data.get("faq_q1","")}</h3>
+  <p style="color:#555;">{data.get("faq_a1","")}</p>
+  <h3 style="color:#34495e;font-size:1em;">Q: {data.get("faq_q2","")}</h3>
+  <p style="color:#555;">{data.get("faq_a2","")}</p>
+  <h3 style="color:#34495e;font-size:1em;">Q: {data.get("faq_q3","")}</h3>
+  <p style="color:#555;">{data.get("faq_a3","")}</p>
+</div>'''
+
+    return f'''<div style="font-family:Georgia,serif;max-width:820px;margin:0 auto;line-height:1.85;color:#2d2d2d;font-size:1.05em;">
+
+<h1 style="font-size:1.95em;color:#1a1a1a;line-height:1.3;">{data.get("h1", design_hint)}</h1>
+<p style="color:#999;font-size:0.82em;">By <strong>Cust Tshirts</strong> • {datetime.now().strftime("%B %d, %Y")} • <a href="{product_url}" style="color:#e74c3c;">View on Redbubble →</a></p>
+
+{get(0)}
+
+<p style="font-size:1.1em;color:#444;border-left:4px solid #e74c3c;padding-left:14px;margin:20px 0;">{data.get("intro","")}</p>
+
+{get(1)}
+
+<h2 style="color:#2c3e50;border-bottom:2px solid #f0f0f0;padding-bottom:8px;">{data.get("section1_h2","")}</h2>
+<p>{data.get("section1_body","")}</p>
+
+{get(2)}
+
+<h2 style="color:#2c3e50;border-bottom:2px solid #f0f0f0;padding-bottom:8px;">{data.get("section2_h2","")}</h2>
+<p>{data.get("section2_body","")}</p>
+
+{get(3)}
+{get(4)}
+{grid}
+
+<h2 style="color:#2c3e50;border-bottom:2px solid #f0f0f0;padding-bottom:8px;">{data.get("section3_h2","")}</h2>
+<p>{data.get("section3_body","")}</p>
+
+{get(5)}
+
+<h2 style="color:#2c3e50;border-bottom:2px solid #f0f0f0;padding-bottom:8px;">{data.get("section4_h2","")}</h2>
+<p>{data.get("section4_body","")}</p>
+
+<h2 style="color:#2c3e50;border-bottom:2px solid #f0f0f0;padding-bottom:8px;">{data.get("section5_h2","")}</h2>
+<p>{data.get("section5_body","")}</p>
+
+{faq}
+
+<p style="font-size:1.05em;color:#444;">{data.get("conclusion","")}</p>
+
+<div style="text-align:center;margin:40px 0 20px;">
+  <a href="{product_url}" style="display:inline-block;background:#e74c3c;color:#fff;padding:16px 40px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:1.1em;box-shadow:0 4px 12px rgba(231,76,60,0.35);">
+    🛒 Shop This Design on Redbubble
+  </a>
+  <p style="color:#999;font-size:0.82em;margin-top:10px;">Worldwide shipping • Satisfaction guaranteed</p>
+</div>
+
+<hr style="border:none;border-top:1px solid #eee;margin:30px 0;" />
+<p style="font-size:0.78em;color:#bbb;text-align:center;">© {datetime.now().year} Cust Tshirts • <a href="{product_url}" style="color:#e74c3c;">Redbubble</a></p>
+
+</div>'''
+
+
+# ══════════════════════════════════════════════════════════════
+# 📤 MAIN PUBLISH FUNCTION
+# ══════════════════════════════════════════════════════════════
+
+def post_to_blogger(design_hint: str, product_url: str, images: list, user_tags: list = None) -> dict:
     if not BLOGGER_BLOG_ID:
-        print("⚠️ BLOGGER_BLOG_ID not set")
-        return {'success': False, 'error': 'Blog ID missing'}
+        print("⚠️ BLOGGER_BLOG_ID not set — skipping")
+        return {"success": False, "error": "BLOGGER_BLOG_ID missing"}
+
+    print("\n📝 Publishing SEO article to Blogger...")
+    if user_tags is None:
+        user_tags = []
 
     token = get_access_token()
     if not token:
-        return {'success': False, 'error': 'Auth failed'}
+        return {"success": False, "error": "Auth failed"}
 
-    print("\n📝 Generating long SEO article with 12+ images (using original image URLs)...")
-    article = generate_seo_article(design_hint, product_url, images)
+    hosted = prepare_images(token, product_url, design_hint)
 
-    # التأكد من وجود 12 صورة على الأقل في المقال
-    img_count = article['content'].count('<img')
-    if img_count < 12:
-        print(f"⚠️ Only {img_count} images found. Adding fallback gallery.")
-        # نضيف معرض آخر في نهاية المقال
-        extra_gallery = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin:30px 0;">'
-        for i in range(12):
-            extra_gallery += '<img src="https://ih1.redbubble.net/image.placeholder.jpg" alt="placeholder" style="width:100%;" />'
-        extra_gallery += '</div>'
-        article['content'] += extra_gallery
+    # لو مش وصلنا 12 — أكمّل من الروابط الأصلية
+    if len(hosted) < MIN_IMAGES:
+        extra = fetch_product_images(product_url, max_images=20)
+        for u in extra:
+            if u not in hosted:
+                hosted.append(u)
+            if len(hosted) >= MIN_IMAGES:
+                break
 
-    api_url = f"https://www.googleapis.com/blogger/v3/blogs/{BLOGGER_BLOG_ID}/posts"
+    print(f"   🖼️  Total images: {len(hosted)}")
+
+    print("   🤖 Generating 500+ word SEO article...")
+    article = generate_article(design_hint, product_url, user_tags)
+
+    html = build_html(article, design_hint, product_url, hosted)
+
+    ai_labels  = article.get("labels", [])
+    all_labels = list(dict.fromkeys(user_tags + ai_labels))[:20]
+
     payload = {
-        'title': article['title'],
-        'content': article['content'],
-        'labels': article['labels'],
-        'customMetaData': article['meta_description']
+        "title":   article.get("seo_title", f"{design_hint} — Shop on Redbubble"),
+        "content": html,
+        "labels":  all_labels,
     }
 
     try:
         resp = requests.post(
-            api_url,
-            headers={'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'},
+            f"https://www.googleapis.com/blogger/v3/blogs/{BLOGGER_BLOG_ID}/posts/",
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
             json=payload,
-            timeout=60
+            timeout=30
         )
         data = resp.json()
-        if resp.status_code in (200, 201) and 'id' in data:
-            print(f"✅ Blogger post published!")
-            print(f"   📰 Title: {article['title']}")
-            print(f"   🏷️ Labels: {', '.join(article['labels'][:8])}")
-            print(f"   🖼️ Images in post: {article['content'].count('<img')}")
-            word_count = len(re.findall(r'\w+', article['content']))
-            print(f"   📄 Word count: {word_count} words")
-            return {
-                'success': True,
-                'post_id': data['id'],
-                'url': data.get('url', ''),
-                'title': article['title'],
-                'word_count': word_count
-            }
+
+        if resp.status_code in (200, 201) and "id" in data:
+            post_url = data.get("url", "")
+            print(f"   ✅ Published!")
+            print(f"   📰 Title  : {payload['title']}")
+            print(f"   🔗 URL    : {post_url}")
+            print(f"   🏷️  Labels : {', '.join(all_labels[:6])}...")
+            print(f"   🖼️  Images : {len(hosted)}")
+            return {"success": True, "post_id": data["id"], "url": post_url, "title": payload["title"]}
         else:
-            err = data.get('error', {}).get('message', str(data))
-            print(f"❌ Blogger API error: {err}")
-            return {'success': False, 'error': err}
+            err = data.get("error", {}).get("message", str(data))
+            print(f"   ❌ Blogger error: {err}")
+            return {"success": False, "error": err}
+
     except Exception as e:
-        print(f"❌ Blogger exception: {e}")
-        return {'success': False, 'error': str(e)}
+        print(f"   ❌ Publish failed: {e}")
+        return {"success": False, "error": str(e)}
