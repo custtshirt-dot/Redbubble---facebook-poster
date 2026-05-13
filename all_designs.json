@@ -1,7 +1,82 @@
 {
-  "last_updated": "2026-05-13T03:15:09.403613",
+  "last_updated": "2026-05-13T03:21:27.327900",
   "store_url": "https://www.redbubble.com/people/cust-tshirts/shop",
-  "total": 0,
-  "note": "Store scan returned 0 results — might be a scraping issue",
-  "designs": []
+  "total": 8,
+  "posted_count": 0,
+  "never_posted_count": 8,
+  "total_posts_made": 13,
+  "designs": [
+    {
+      "title": "Z5Wf",
+      "url": "https://www.redbubble.com/i/t-shirt/Funny-Ghost-Mask-Call-Me-Retro-Spooky-Design-by-Cust-tshirts/174770482/z5wf",
+      "work_id": "174770482",
+      "post_count": 0,
+      "last_posted": null,
+      "first_seen": null,
+      "status": "🆕 Never Posted"
+    },
+    {
+      "title": "Sgk",
+      "url": "https://www.redbubble.com/i/sticker/Retro-Horror-Movie-Night-Spooky-Slasher-Film-Fan-by-Cust-tshirts/174770243/7sgk",
+      "work_id": "174770243",
+      "post_count": 0,
+      "last_posted": null,
+      "first_seen": null,
+      "status": "🆕 Never Posted"
+    },
+    {
+      "title": "Fce2",
+      "url": "https://www.redbubble.com/i/hat/75-Complete-Funny-Tripod-Cat-Mom-Gift-Three-Legged-Humor-by-Cust-tshirts/177169483/fce2",
+      "work_id": "177169483",
+      "post_count": 0,
+      "last_posted": null,
+      "first_seen": null,
+      "status": "🆕 Never Posted"
+    },
+    {
+      "title": "Wqnt",
+      "url": "https://www.redbubble.com/i/art-print/Not-Disabled-Just-Special-Edition-Funny-Tripod-Cat-Mom-Gift-by-Cust-tshirts/177701196/wqnt",
+      "work_id": "177701196",
+      "post_count": 0,
+      "last_posted": null,
+      "first_seen": null,
+      "status": "🆕 Never Posted"
+    },
+    {
+      "title": "Yb7",
+      "url": "https://www.redbubble.com/i/dress/3-Cylinder-Engine-Funny-Tripod-Cat-Car-Guy-Gift-Racing-by-Cust-tshirts/177196596/3yb7",
+      "work_id": "177196596",
+      "post_count": 0,
+      "last_posted": null,
+      "first_seen": null,
+      "status": "🆕 Never Posted"
+    },
+    {
+      "title": "Sgk",
+      "url": "https://www.redbubble.com/i/sticker/Not-Missing-A-Leg-Just-More-Aerodynamic-Funny-Tripod-Cat-Mom-Gift-by-Cust-tshirts/177196475/7sgk",
+      "work_id": "177196475",
+      "post_count": 0,
+      "last_posted": null,
+      "first_seen": null,
+      "status": "🆕 Never Posted"
+    },
+    {
+      "title": "Lrcw",
+      "url": "https://www.redbubble.com/i/t-shirt/Captain-Tripod-Funny-Pirate-Cat-Mom-Gift-Three-Legged-by-Cust-tshirts/177179139/lrcw",
+      "work_id": "177179139",
+      "post_count": 0,
+      "last_posted": null,
+      "first_seen": null,
+      "status": "🆕 Never Posted"
+    },
+    {
+      "title": "Sgk",
+      "url": "https://www.redbubble.com/i/sticker/I-Want-To-Play-A-Game-Creepy-Horror-Puppet-Art-by-Cust-tshirts/177111450/7sgk",
+      "work_id": "177111450",
+      "post_count": 0,
+      "last_posted": null,
+      "first_seen": null,
+      "status": "🆕 Never Posted"
+    }
+  ]
 }
