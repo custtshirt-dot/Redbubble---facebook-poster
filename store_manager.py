@@ -15,6 +15,9 @@ from datetime import datetime
 DESIGNS_HISTORY_FILE = 'designs_history.json'
 MANUAL_PRODUCTS_FILE = 'manual_products.json'
 
+# ✅ كول داون لكل تصميم — مش هيتنشر نفس التصميم قبل 24 ساعة
+DESIGN_COOLDOWN_HOURS = 24
+
 HEADERS = {
     'User-Agent': (
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
@@ -370,19 +373,57 @@ def get_next_product_to_post(store_url: str = None) -> dict | None:
         print(f"\n✨ Chose NEW: {chosen['title'] or chosen['url'][:70]}")
         return chosen
 
-    # أولوية 2: أقدم تصميم اتنشر (مع تجنب التكرار المتتالي)
+    # أولوية 2: أقدم تصميم اتنشر مع تجنب التكرار والكول داون
     if posted_before:
         posted_before.sort(key=lambda d: d.get('last_posted') or '0000')
+        now = datetime.now()
+        from datetime import timedelta
+
+        skipped_cooldown = []
 
         for candidate in posted_before:
-            if candidate['url'] != last_posted_url:
-                candidate['is_new'] = False
-                print(f"\n🔄 Chose OLD: {candidate['title'] or candidate['url'][:70]}")
-                print(f"   ⏳ Last posted: {candidate['last_posted'][:10] if candidate['last_posted'] else 'never'}")
-                return candidate
+            # تجنب التصميم اللي اتنشر قبله مباشرة
+            if candidate['url'] == last_posted_url:
+                continue
 
-        # كل التصاميم بلاها واحد — مفيش بديل، نستخدم الأقدم
+            # ✅ تحقق من كول داون 24 ساعة
+            last_p = candidate.get('last_posted')
+            if last_p:
+                try:
+                    last_dt = datetime.fromisoformat(last_p)
+                    hours_since = (now - last_dt).total_seconds() / 3600
+                    if hours_since < DESIGN_COOLDOWN_HOURS:
+                        hrs_left = DESIGN_COOLDOWN_HOURS - hours_since
+                        print(f"   ⏭️ Cooldown ({hrs_left:.1f}h left): {candidate.get('title','')[:40]}")
+                        skipped_cooldown.append(candidate)
+                        continue
+                except Exception:
+                    pass
+
+            candidate['is_new'] = False
+            print(f"\n🔄 Chose OLD: {candidate['title'] or candidate['url'][:70]}")
+            print(f"   ⏳ Last posted: {candidate['last_posted'][:10] if candidate['last_posted'] else 'never'}")
+            return candidate
+
+        # ✅ لو كل التصاميم في كول داون — لا تنشر
+        if skipped_cooldown:
+            print(f"\n⏸️  All {len(skipped_cooldown)} design(s) are in cooldown — skipping this run")
+            print(f"   ⏰ Next available in: check designs_history.json")
+            return None
+
+        # آخر حل: لو مفيش غير التصميم اللي اتنشر قبله (تصميم واحد بس في الستور)
         chosen = posted_before[0]
+        last_p = chosen.get('last_posted')
+        if last_p:
+            try:
+                last_dt = datetime.fromisoformat(last_p)
+                hours_since = (now - last_dt).total_seconds() / 3600
+                if hours_since < DESIGN_COOLDOWN_HOURS:
+                    hrs_left = DESIGN_COOLDOWN_HOURS - hours_since
+                    print(f"\n⏸️  Only 1 design and it's in cooldown ({hrs_left:.1f}h left) — skipping")
+                    return None
+            except Exception:
+                pass
         chosen['is_new'] = False
         print(f"\n🔄 Only one design available: {chosen['title']}")
         return chosen
