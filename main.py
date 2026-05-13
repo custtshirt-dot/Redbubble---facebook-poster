@@ -36,6 +36,7 @@ from facebook_publisher import (
 )
 from instagram_poster import post_to_instagram
 from pinterest_poster import post_to_pinterest
+from blogger_poster import post_to_blogger
 from video_creator import create_slideshow_video, create_reels_video
 from voice_generator import generate_voice, get_random_voice_style
 from templates import get_text_only_post, get_link_post
@@ -99,6 +100,12 @@ def run_album_post(images, url, design_hint):
         post_to_pinterest(images, caption, url, design_hint)
     except Exception as e:
         print(f"⚠️ Pinterest failed: {e}")
+
+    # Blogger SEO Article
+    try:
+        post_to_blogger(design_hint, url, images)
+    except Exception as e:
+        print(f"⚠️ Blogger failed: {e}")
 
     return result
 
@@ -183,6 +190,12 @@ def run_reels_post(images, url, design_hint):
         post_to_instagram(caption=caption, post_type='reels', video_path=video_path)
     except Exception as e:
         print(f"⚠️ Instagram reels failed: {e}")
+
+    # Blogger SEO Article
+    try:
+        post_to_blogger(design_hint, url, images)
+    except Exception as e:
+        print(f"⚠️ Blogger failed: {e}")
 
     return result
 
