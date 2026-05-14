@@ -220,9 +220,22 @@ def load_designs_from_txt() -> list:
                 continue
             seen.add(work_id)
 
-            slug = url.rstrip('/').split('/')[-1]
-            slug = re.sub(r'^\d+-?', '', slug)
-            title = slug.replace('-', ' ').title()[:80] or (tags[0] if tags else f"Design {work_id}")
+            # استخرج العنوان من الـ URL بشكل صح
+            # URL شكله: /i/t-shirt/Design-Name-Here/123456/z5wf
+            # المفروض ناخد "Design-Name-Here" مش "z5wf"
+            url_parts = url.rstrip('/').split('/')
+            # الـ slug بتاع الاسم بيكون قبل الـ work_id بجزأين
+            slug = ''
+            for part in url_parts:
+                if re.match(r'^\d{6,}', part):
+                    break
+                slug = part
+            slug = re.sub(r'^[a-z-]+-', '', slug, count=1)  # شيل نوع المنتج
+            slug = re.sub(r'-by-\w.*$', '', slug)            # شيل "by-username"
+            slug = re.sub(r'-\d+$', '', slug)                # شيل أرقام في الآخر
+            title = slug.replace('-', ' ').strip().title()[:80]
+            if not title or len(title) < 3:
+                title = tags[0] if tags else f"Design {work_id}"
 
             designs.append({
                 'url':       url,
