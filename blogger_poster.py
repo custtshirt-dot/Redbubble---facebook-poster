@@ -1,6 +1,6 @@
 """
 📝 Blogger Poster — ينشر مقالة SEO كاملة على Blogger
-✅ الصور بتترفع على Blogger
+✅ الصور بترفع على Blogger Media Manager (Picasa API)
 ✅ المقالة أكتر من 500 كلمة
 ✅ 12 صورة منتج على الأقل
 ✅ SEO كامل
@@ -13,6 +13,7 @@ BLOGGER_BLOG_ID       = os.getenv('BLOGGER_BLOG_ID', '')
 BLOGGER_CLIENT_ID     = os.getenv('BLOGGER_CLIENT_ID', '')
 BLOGGER_CLIENT_SECRET = os.getenv('BLOGGER_CLIENT_SECRET', '')
 BLOGGER_REFRESH_TOKEN = os.getenv('BLOGGER_REFRESH_TOKEN', '')
+BLOGGER_ALBUM_ID      = os.getenv('BLOGGER_ALBUM_ID', '')   # ← جديد
 GROQ_API_KEY          = os.getenv('GROQ_API_KEY', '')
 GROQ_MODEL            = 'llama-3.3-70b-versatile'
 MIN_IMAGES            = 12
@@ -75,7 +76,7 @@ def fetch_product_images(product_url: str, max_images: int = 20) -> list:
                     seen.add(url)
                     image_urls.append(url)
 
-        nd = re.search(r'<script[^>]+id=["\']__NEXT_DATA__["\'][^>]*>(.+?)</script>', html, re.DOTALL)
+        nd = re.search(r'<script[^>]+id=["\'']__NEXT_DATA__["\''][^>]*>(.+?)</script>', html, re.DOTALL)
         if nd:
             try:
                 raw = json.dumps(json.loads(nd.group(1)))
@@ -94,48 +95,107 @@ def fetch_product_images(product_url: str, max_images: int = 20) -> list:
     return image_urls[:max_images]
 
 
-def download_b64(img_url: str):
+def upload_image_to_blogger(token: str, img_url: str, slug: str = "product") -> str | None:
+    """
+    ✅ يرفع الصورة على Blogger Media Manager (Picasa API)
+    ويرجع الرابط المُستضاف على Google
+    """
+    if not BLOGGER_ALBUM_ID:
+        print("   ⚠️ BLOGGER_ALBUM_ID not set — skipping upload")
+        return None
+
     try:
-        resp = requests.get(img_url, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://www.redbubble.com/"}, timeout=15)
-        if resp.status_code == 200:
-            ct = resp.headers.get("Content-Type", "image/jpeg")
-            mime = ct.split(";")[0].strip()
-            if "png" in mime: mime = "image/png"
-            elif "webp" in mime: mime = "image/webp"
-            else: mime = "image/jpeg"
-            return base64.b64encode(resp.content).decode("utf-8"), mime
-    except Exception:
-        pass
+        # تنزيل الصورة من Redbubble
+        dl = requests.get(
+            img_url,
+            headers={"User-Agent": "Mozilla/5.0", "Referer": "https://www.redbubble.com/"},
+            timeout=20
+        )
+        if dl.status_code != 200:
+            return None
+
+        img_bytes = dl.content
+        ct = dl.headers.get("Content-Type", "image/jpeg")
+        mime = ct.split(";")[0].strip()
+        if "png"  in mime: mime, ext = "image/png",  "png"
+        elif "webp" in mime: mime, ext = "image/webp", "webp"
+        else:                mime, ext = "image/jpeg", "jpg"
+
+        # رفع على Picasa / Blogger Media Manager
+        upload_url = (
+            f"https://picasaweb.google.com/data/feed/api"
+            f"/user/default/albumid/{BLOGGER_ALBUM_ID}"
+        )
+        up = requests.post(
+            upload_url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type":  mime,
+                "Slug":          f"{slug}.{ext}",
+                "GData-Version": "2",
+            },
+            data=img_bytes,
+            timeout=30
+        )
+
+        if up.status_code in (200, 201):
+            xml = up.text
+            # استخرج رابط الصورة من الـ XML response
+            m = re.search(r'<media:content[^>]+url=["\']([^"\']+)["\']', xml)
+            if not m:
+                m = re.search(r'<content[^>]+src=["\']([^"\']+)["\']', xml)
+            if m:
+                hosted_url = m.group(1)
+                print(f"   ✅ Uploaded → {hosted_url[:60]}...")
+                return hosted_url
+            else:
+                print(f"   ⚠️ Upload OK but couldn't parse URL from response")
+        else:
+            print(f"   ⚠️ Upload failed ({up.status_code}): {up.text[:300]}")
+
+    except Exception as e:
+        print(f"   ⚠️ Upload error for {img_url[:50]}: {e}")
+
     return None
 
 
 def prepare_images(token: str, product_url: str, design_hint: str) -> list:
     """
-    ✅ يجيب روابط الصور من Redbubble CDN مباشرة
-    بتظهر في محرر Blogger كصور حقيقية وفي الصفحة الرئيسية كـ thumbnail
+    ✅ يجيب الصور من Redbubble ويرفعها على Blogger Media Manager
+    الصور بتتخزن في البوم وبترجع روابط مُستضافة على Google
     """
-    print(f"   📥 Fetching product images...")
+    print(f"   📥 Fetching product images from Redbubble...")
     raw_urls = fetch_product_images(product_url, max_images=20)
     if not raw_urls:
         return []
 
-    # فلترة الصور عالية الجودة بس
-    valid = []
-    seen_sizes = set()
+    # فلترة الصور المتكررة
+    filtered = []
+    seen_keys = set()
     for url in raw_urls:
-        # تجنب التكرار بناءً على آخر جزء من الرابط
         key = url.split('/')[-1].split('.')[0][:20]
-        if key in seen_sizes:
+        if key in seen_keys:
             continue
-        seen_sizes.add(key)
-        valid.append(url)
-        if len(valid) >= MIN_IMAGES + 4:
+        seen_keys.add(key)
+        filtered.append(url)
+        if len(filtered) >= MIN_IMAGES + 4:
             break
 
-    print(f"   🖼️  Ready: {len(valid)} images")
-    return valid[:MIN_IMAGES + 2]
+    print(f"   ☁️  Uploading {len(filtered)} images to Blogger Media Manager...")
 
+    hosted = []
+    for i, url in enumerate(filtered):
+        slug = f"{re.sub(r'[^a-z0-9]', '-', design_hint.lower())[:30]}-{i+1}"
+        hosted_url = upload_image_to_blogger(token, url, slug=slug)
+        if hosted_url:
+            hosted.append(hosted_url)
+        else:
+            # Fallback: استخدم رابط Redbubble مباشرة لو الرفع فشل
+            print(f"   ↩️  Fallback to CDN for image {i+1}")
+            hosted.append(url)
 
+    print(f"   🖼️  Ready: {len(hosted)} images ({sum(1 for u in hosted if 'google' in u or 'blogger' in u or 'picasa' in u)} hosted on Google)")
+    return hosted[:MIN_IMAGES + 2]
 
 
 # ══════════════════════════════════════════════════════════════
@@ -149,7 +209,6 @@ def auto_generate_tags(design_hint: str, product_url: str) -> list:
     بيُستخدم لما designs.txt مفيهوش تاجات
     """
     if not GROQ_API_KEY:
-        # بدون AI — استخرج كلمات من اسم التصميم
         words = re.sub(r'[^a-zA-Z0-9 ]', ' ', design_hint).lower().split()
         stop = {'by', 'for', 'the', 'and', 'or', 'a', 'an', 'in', 'on', 'of', 'to', 'with', 'gift'}
         return [w for w in words if w not in stop and len(w) > 2][:8]
@@ -191,7 +250,6 @@ No explanation. Just the JSON array."""
     except Exception as e:
         print(f"   ⚠️ Tag generation failed: {e}")
 
-    # Fallback: كلمات من الاسم
     words = re.sub(r'[^a-zA-Z0-9 ]', ' ', design_hint).lower().split()
     stop = {'by', 'for', 'the', 'and', 'or', 'a', 'an', 'in', 'on', 'of', 'to', 'with', 'gift', 'shirt', 'tshirt'}
     return [w for w in words if w not in stop and len(w) > 2][:8]
@@ -292,7 +350,6 @@ def build_html(data: dict, design_hint: str, product_url: str, images: list) -> 
     def img(url, alt, n):
         return f'''<div style="text-align:center;margin:22px 0;">
   <img src="{url}" alt="{alt} - {n}" title="{alt}"
-       referrerpolicy="no-referrer" crossorigin="anonymous"
        style="max-width:100%;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.12);" />
 </div>'''
 
@@ -305,7 +362,6 @@ def build_html(data: dict, design_hint: str, product_url: str, images: list) -> 
         cells = "".join(
             f'''<div style="flex:1;min-width:110px;max-width:190px;padding:4px;">
   <img src="{images[i]}" alt="{design_hint} product {i+1}"
-       referrerpolicy="no-referrer" crossorigin="anonymous"
        style="width:100%;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,0.1);" />
 </div>''' for i in range(6, min(12, len(images)))
         )
@@ -390,7 +446,6 @@ def post_to_blogger(design_hint: str, product_url: str, images: list, user_tags:
     if user_tags is None:
         user_tags = []
 
-    # ✅ لو مفيش تاجات — يولّدها أوتوماتيك من اسم التصميم
     if not user_tags:
         print("   🏷️  No tags in designs.txt — auto-generating...")
         user_tags = auto_generate_tags(design_hint, product_url)
@@ -406,7 +461,9 @@ def post_to_blogger(design_hint: str, product_url: str, images: list, user_tags:
         extra = fetch_product_images(product_url, max_images=20)
         for u in extra:
             if u not in hosted:
-                hosted.append(u)
+                # حاول ترفع الصورة الإضافية برضو
+                up = upload_image_to_blogger(token, u, slug=f"extra-{len(hosted)+1}")
+                hosted.append(up if up else u)
             if len(hosted) >= MIN_IMAGES:
                 break
 
