@@ -109,72 +109,32 @@ def download_b64(img_url: str):
     return None
 
 
-def compress_to_small_b64(img_bytes: bytes, max_width: int = 400, quality: int = 50) -> str | None:
-    """
-    يضغط الصورة صغيرة جداً عشان Blogger يقبلها كـ data URI
-    ويحوّلها لصورة مرفوعة على lh3.googleusercontent.com أوتوماتيك
-    """
-    try:
-        from PIL import Image
-        import io
-        img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-        w, h = img.size
-        if w > max_width:
-            img = img.resize((max_width, int(h * max_width / w)), Image.LANCZOS)
-        buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=quality, optimize=True)
-        result = buf.getvalue()
-        size_kb = len(result) // 1024
-        print(f"      📐 Compressed: {w}px → {img.size[0]}px | {size_kb}KB")
-        return base64.b64encode(result).decode("utf-8")
-    except ImportError:
-        # لو Pillow مش موجود
-        return base64.b64encode(img_bytes).decode("utf-8")
-    except Exception as e:
-        print(f"      ⚠️ Compress error: {e}")
-        return None
-
-
 def prepare_images(token: str, product_url: str, design_hint: str) -> list:
     """
-    ✅ يجيب الصور من Redbubble، يضغطها صغيرة، يحطها كـ data URI
-    Blogger بيحوّلها لصور مرفوعة على lh3.googleusercontent.com أوتوماتيك
+    ✅ يجيب روابط الصور من Redbubble CDN مباشرة
+    بتظهر في محرر Blogger كصور حقيقية وفي الصفحة الرئيسية كـ thumbnail
     """
-    print(f"   📥 Fetching & compressing images...")
+    print(f"   📥 Fetching product images...")
     raw_urls = fetch_product_images(product_url, max_images=20)
     if not raw_urls:
         return []
 
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': 'https://www.redbubble.com/',
-    }
-
-    final = []
-
-    for i, img_url in enumerate(raw_urls[:MIN_IMAGES + 4]):
-        try:
-            resp = requests.get(img_url, headers=headers, timeout=15)
-            if resp.status_code != 200:
-                continue
-
-            b64 = compress_to_small_b64(resp.content)
-            if not b64:
-                continue
-
-            # data URI — Blogger بيرفعها على Google أوتوماتيك
-            data_uri = f"data:image/jpeg;base64,{b64}"
-            final.append(data_uri)
-            print(f"      ✅ Image {i+1} ready as data URI")
-
-        except Exception as e:
-            print(f"      ⚠️ Image {i+1} failed: {e}")
-
-        if len(final) >= MIN_IMAGES:
+    # فلترة الصور عالية الجودة بس
+    valid = []
+    seen_sizes = set()
+    for url in raw_urls:
+        # تجنب التكرار بناءً على آخر جزء من الرابط
+        key = url.split('/')[-1].split('.')[0][:20]
+        if key in seen_sizes:
+            continue
+        seen_sizes.add(key)
+        valid.append(url)
+        if len(valid) >= MIN_IMAGES + 4:
             break
 
-    print(f"   🖼️  Ready: {len(final)} images (Blogger will host them)")
-    return final
+    print(f"   🖼️  Ready: {len(valid)} images")
+    return valid[:MIN_IMAGES + 2]
+
 
 
 
