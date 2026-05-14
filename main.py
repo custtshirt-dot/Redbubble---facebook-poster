@@ -81,7 +81,7 @@ def get_post_type_for_this_run() -> str:
 # 📤 POST FUNCTIONS
 # ══════════════════════════════════════════════════════════════
 
-def run_album_post(images, url, design_hint):
+def run_album_post(images, url, design_hint, tags=None):
     caption = generate_ai_caption('album', url, design_hint)
 
     # Facebook: 30 صورة كاملة
@@ -103,7 +103,7 @@ def run_album_post(images, url, design_hint):
 
     # Blogger SEO Article
     try:
-        post_to_blogger(design_hint, url, images, target.get('tags', []))
+        post_to_blogger(design_hint, url, images, tags or [])
     except Exception as e:
         print(f"⚠️ Blogger failed: {e}")
 
@@ -167,7 +167,7 @@ def run_video_post(images, url, design_hint):
     return result
 
 
-def run_reels_post(images, url, design_hint):
+def run_reels_post(images, url, design_hint, tags=None):
     print("\n🎬 Generating Reels with voice...")
     script = generate_video_script(design_hint, url)
 
@@ -181,7 +181,7 @@ def run_reels_post(images, url, design_hint):
     )
     if not video_path:
         print("⚠️ Reels creation failed, falling back to album post")
-        return run_album_post(images, url, design_hint)
+        return run_album_post(images, url, design_hint, tags)
 
     caption = generate_ai_caption('reels', url, design_hint)
     result = post_reels(video_path, caption)
@@ -193,7 +193,7 @@ def run_reels_post(images, url, design_hint):
 
     # Blogger SEO Article
     try:
-        post_to_blogger(design_hint, url, images, target.get('tags', []))
+        post_to_blogger(design_hint, url, images, tags or [])
     except Exception as e:
         print(f"⚠️ Blogger failed: {e}")
 
@@ -319,7 +319,7 @@ def main():
     result = None
 
     if active_post_type in ('album', 'carousel'):
-        result = run_album_post(sorted_images, target_url, design_hint)
+        result = run_album_post(sorted_images, target_url, design_hint, target.get('tags', []))
 
     elif active_post_type == 'single':
         result = run_single_post(sorted_images, target_url, design_hint)
@@ -334,13 +334,13 @@ def main():
         result = run_video_post(sorted_images, target_url, design_hint)
 
     elif active_post_type == 'reels':
-        result = run_reels_post(sorted_images, target_url, design_hint)
+        result = run_reels_post(sorted_images, target_url, design_hint, target.get('tags', []))
 
     elif active_post_type == 'all':
         # كل الأنواع
         results = {}
         for ptype, fn in [
-            ('album', lambda: run_album_post(sorted_images, target_url, design_hint)),
+            ('album', lambda: run_album_post(sorted_images, target_url, design_hint, target.get('tags', []))),
             ('single', lambda: run_single_post(sorted_images, target_url, design_hint)),
             ('link', lambda: run_link_post(target_url)),
         ]:
@@ -349,7 +349,7 @@ def main():
             time.sleep(10)
         result = results
     else:
-        result = run_album_post(sorted_images, target_url, design_hint)
+        result = run_album_post(sorted_images, target_url, design_hint, target.get('tags', []))
 
     # ── تسجيل النتيجة ───────────────────────────────────────
     print(f"\n{'=' * 60}")
