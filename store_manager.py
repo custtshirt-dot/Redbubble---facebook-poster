@@ -339,28 +339,49 @@ def scrape_store_designs(store_url: str, max_pages: int = 5) -> list:
     return designs
 
 
+def _fix_title_from_url(url: str) -> str:
+    """استخراج العنوان الصح من الـ URL"""
+    url_parts = url.rstrip('/').split('/')
+    slug = ''
+    for part in url_parts:
+        if re.match(r'^\d{6,}', part):
+            break
+        slug = part
+    slug = re.sub(r'-by-\w.*$', '', slug)
+    slug = re.sub(r'-\d+$', '', slug)
+    title = slug.replace('-', ' ').strip().title()[:80]
+    return title if len(title) > 3 else ''
+
+
 def _register_designs(all_designs: list) -> int:
     """
-    تسجيل التصاميم الجديدة في الهيستوري بدون علامة 'posted'
-    بيرجع عدد التصاميم الجديدة
+    تسجيل التصاميم الجديدة في الهيستوري
+    + تصحيح العناوين القديمة الغلط (Sgk, Djes, إلخ)
     """
     history = load_designs_history()
     new_count = 0
 
     for d in all_designs:
         key = url_key(d['url'])
+        correct_title = d.get('title', '') or _fix_title_from_url(d['url'])
+
         if key not in history['designs']:
             history['designs'][key] = {
-                'url': d['url'],
-                'title': d.get('title', ''),
+                'url':        d['url'],
+                'title':      correct_title,
                 'first_seen': datetime.now().isoformat(),
                 'post_count': 0,
                 'last_posted': None,
-                'is_manual': d.get('is_manual', False),
+                'is_manual':  d.get('is_manual', False),
             }
             new_count += 1
+        else:
+            # ✅ صلّح العنوان لو كان غلط (قصير جداً أو كله أرقام/حروف صغيرة)
+            existing_title = history['designs'][key].get('title', '')
+            if not existing_title or len(existing_title) <= 5 or existing_title.islower():
+                history['designs'][key]['title'] = correct_title
 
-    if new_count > 0:
+    if new_count > 0 or True:  # احفظ دايماً عشان نصلح العناوين
         history['last_check'] = datetime.now().isoformat()
         save_designs_history(history)
 
