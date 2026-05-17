@@ -237,8 +237,10 @@ def load_designs_from_txt() -> list:
             if not title or len(title) < 3:
                 title = tags[0] if tags else f"Design {work_id}"
 
+            # ✅ normalize URL: lowercase so url_key() matches history keys
+            url_normalized = url.lower()
             designs.append({
-                'url':       url,
+                'url':       url_normalized,
                 'title':     title,
                 'work_id':   work_id,
                 'tags':      tags,
