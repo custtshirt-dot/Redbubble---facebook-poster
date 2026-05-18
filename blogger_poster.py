@@ -583,11 +583,13 @@ def build_html(data: dict, design_hint: str, product_url: str,
 
 def post_to_blogger(design_hint: str, product_url: str, images: list,
                     user_tags: list = None,
-                    user_description: str = '') -> dict:
+                    user_description: str = '',
+                    collection: str = '') -> dict:
     """
     ينشر مقالة SEO احترافية على Blogger
     - user_tags: التاجات من designs.txt
     - user_description: الوصف من designs.txt (بعد | الثاني)
+    - collection: اسم الكوليكشن (يُضاف كـ label تلقائياً)
     """
     if not BLOGGER_BLOG_ID:
         print("⚠️ BLOGGER_BLOG_ID not set — skipping")
@@ -628,7 +630,8 @@ def post_to_blogger(design_hint: str, product_url: str, images: list,
 
     # 5. Merge labels
     ai_labels  = article.get('labels', [])
-    all_labels = list(dict.fromkeys(user_tags + ai_labels))[:20]
+    collection_label = [collection] if collection else []
+    all_labels = list(dict.fromkeys(collection_label + user_tags + ai_labels))[:20]
 
     # 6. Publish
     payload = {
