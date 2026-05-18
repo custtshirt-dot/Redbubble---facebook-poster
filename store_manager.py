@@ -162,6 +162,24 @@ def load_manual_products() -> list:
 # 🔍 STORE SCRAPING
 # ══════════════════════════════════════════════════════════════
 
+
+# ✅ الكوليكشنات المتاحة — مطابقة لـ Redbubble
+VALID_COLLECTIONS = {
+    'cat designs':   'Cat Designs',
+    'horror & dark': 'Horror & Dark',
+    'horror and dark': 'Horror & Dark',
+    'funny gifts':   'Funny Gifts',
+    'graphic tees':  'Graphic Tees',
+    'gift ideas':    'Gift Ideas',
+}
+COLLECTION_URLS = {
+    'Cat Designs':   'https://www.redbubble.com/people/cust-tshirts/shop?artistUserName=Cust-tshirts&collections=4463017&iaCode=all-departments&sortOrder=top%20selling',
+    'Horror & Dark': 'https://www.redbubble.com/people/cust-tshirts/shop?artistUserName=cust-tshirts&collections=4364050&iaCode=all-departments&sortOrder=top%20selling',
+    'Funny Gifts':   'https://www.redbubble.com/people/cust-tshirts/shop?artistUserName=cust-tshirts&collections=4372617&iaCode=all-departments&sortOrder=top%20selling',
+    'Graphic Tees':  'https://www.redbubble.com/people/cust-tshirts/shop?artistUserName=cust-tshirts&collections=4425787&iaCode=all-departments&sortOrder=top%20selling',
+    'Gift Ideas':    'https://www.redbubble.com/people/cust-tshirts/shop?artistUserName=cust-tshirts&collections=4367457&iaCode=all-departments&sortOrder=top%20selling',
+}
+
 DESIGNS_FILE = 'designs.txt'   # ✅ ملف الروابط — يتعدّل مباشرة على GitHub
 
 
@@ -198,14 +216,24 @@ def load_designs_from_txt() -> list:
             if not line or line.startswith('#'):
                 continue
 
-            # ✅ فصل الرابط عن التاجات بـ |
-            if '|' in line:
-                parts = line.split('|', 1)
-                url_part = parts[0].strip()
+            # ✅ فصل الرابط | التاجات | الكوليكشن | الوصف
+            # Format: URL | tag1,tag2 | Collection Name | Description text
+            parts = [p.strip() for p in line.split('|')]
+            url_part = parts[0].strip()
+            tags        = []
+            collection  = ''
+            description = ''
+
+            if len(parts) >= 2:
                 tags = [t.strip() for t in parts[1].split(',') if t.strip()]
-            else:
-                url_part = line.strip()
-                tags = []
+
+            if len(parts) >= 3:
+                raw_col    = parts[2].strip()
+                col_key    = raw_col.lower()
+                collection = VALID_COLLECTIONS.get(col_key, raw_col if raw_col else '')
+
+            if len(parts) >= 4:
+                description = parts[3].strip()
 
             url = url_part.split()[0].strip()
             if not url.startswith('http'):
@@ -240,11 +268,13 @@ def load_designs_from_txt() -> list:
             # ✅ normalize URL: lowercase so url_key() matches history keys
             url_normalized = url.lower()
             designs.append({
-                'url':       url_normalized,
-                'title':     title,
-                'work_id':   work_id,
-                'tags':      tags,
-                'is_manual': False,
+                'url':         url_normalized,
+                'title':       title,
+                'work_id':     work_id,
+                'tags':        tags,
+                'collection':  collection,    # ✅ الكوليكشن من designs.txt
+                'description': description,   # ✅ الوصف من designs.txt
+                'is_manual':   False,
             })
 
     if designs:
