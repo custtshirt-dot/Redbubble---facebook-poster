@@ -119,7 +119,7 @@ def fetch_product_images(product_url: str, max_images: int = 20) -> list:
 
 
 def prepare_images(token: str, product_url: str, design_hint: str) -> list:
-    """يجيب الصور ويحاول يرفعها على Blogger — fallback للروابط الأصلية"""
+    """يجيب الصور من Redbubble مباشرةً — Picasa API أُغلقت نهائياً"""
     print(f"   📥 Fetching product images...")
     raw_urls = fetch_product_images(product_url, max_images=20)
     if not raw_urls:
@@ -129,63 +129,20 @@ def prepare_images(token: str, product_url: str, design_hint: str) -> list:
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Referer': 'https://www.redbubble.com/',
     }
-    uploaded = []
-    fallback = []
-    album_id = os.getenv('BLOGGER_ALBUM_ID', 'default')
-    api_url = f'https://picasaweb.google.com/data/feed/api/user/default/albumid/{album_id}'
-
-    print(f"   ⬆️  Uploading {min(len(raw_urls), MIN_IMAGES)} images to Blogger...")
-
-    for i, img_url in enumerate(raw_urls[:MIN_IMAGES + 4]):
+    valid = []
+    for img_url in raw_urls[:MIN_IMAGES + 4]:
         try:
-            r = requests.get(img_url, headers=headers, timeout=15)
-            if r.status_code != 200:
-                fallback.append(img_url)
-                continue
-            img_bytes = r.content
-            mime = r.headers.get('Content-Type', 'image/jpeg').split(';')[0].strip()
-            filename = f"{design_hint[:30].replace(' ', '_')}_{i+1}.jpg"
+            r = requests.head(img_url, headers=headers, timeout=10, allow_redirects=True)
+            if r.status_code == 200:
+                valid.append(img_url)
+            if len(valid) >= MIN_IMAGES:
+                break
+        except Exception:
+            continue
 
-            upload_resp = requests.post(
-                api_url,
-                headers={
-                    'Authorization': f'Bearer {token}',
-                    'Content-Type':  mime,
-                    'Slug':          filename[:50],
-                    'GData-Version': '2',
-                },
-                data=img_bytes,
-                timeout=30
-            )
-
-            hosted = None
-            if upload_resp.status_code in (200, 201):
-                for pattern in ['lh3.', 'lh4.', 'lh5.', 'lh6.']:
-                    idx = upload_resp.text.find(pattern)
-                    if idx >= 0:
-                        sq = upload_resp.text.rfind('"', 0, idx)
-                        eq = upload_resp.text.find('"', idx)
-                        if sq >= 0 and eq > idx:
-                            hosted = upload_resp.text[sq+1:eq]
-                            break
-
-            if hosted:
-                uploaded.append(hosted)
-                print(f"      ✅ Image {i+1} uploaded to Blogger")
-            else:
-                fallback.append(img_url)
-                print(f"      ⚠️ Image {i+1} — using original URL")
-
-        except Exception as e:
-            fallback.append(img_url)
-            print(f"      ⚠️ Image {i+1} error: {e}")
-
-        if len(uploaded) + len(fallback) >= MIN_IMAGES:
-            break
-
-    all_imgs = uploaded + fallback
-    print(f"   🖼️  Ready: {len(uploaded)} on Blogger + {len(fallback)} CDN = {len(all_imgs)} total")
-    return all_imgs
+    result = valid if valid else raw_urls[:MIN_IMAGES]
+    print(f"   🖼️  Ready: {len(result)} CDN images")
+    return result
 
 
 # ══════════════════════════════════════════════════════════════
@@ -628,13 +585,18 @@ def post_to_blogger(design_hint: str, product_url: str, images: list,
     # 4. Build HTML
     html = build_html(article, design_hint, product_url, hosted, user_tags, user_description)
 
-    # 5. Merge labels
+    # 5. Merge labels — clean empties and strip whitespace
     ai_labels  = article.get('labels', [])
     collection_label = [collection] if collection else []
-    all_labels = list(dict.fromkeys(collection_label + user_tags + ai_labels))[:20]
+    raw_labels = collection_label + user_tags + ai_labels
+    all_labels = list(dict.fromkeys(
+        lbl.strip() for lbl in raw_labels
+        if lbl and isinstance(lbl, str) and lbl.strip()
+    ))[:20]
 
     # 6. Publish
     payload = {
+        'kind':    'blogger#post',
         'title':   article.get('seo_title', f'{design_hint} — Shop on Redbubble'),
         'content': html,
         'labels':  all_labels,
