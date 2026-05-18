@@ -81,7 +81,7 @@ def get_post_type_for_this_run() -> str:
 # 📤 POST FUNCTIONS
 # ══════════════════════════════════════════════════════════════
 
-def run_album_post(images, url, design_hint, tags=None):
+def run_album_post(images, url, design_hint, tags=None, collection='', description=''):
     caption = generate_ai_caption('album', url, design_hint)
 
     # Facebook: 30 صورة كاملة
@@ -103,7 +103,7 @@ def run_album_post(images, url, design_hint, tags=None):
 
     # Blogger SEO Article
     try:
-        post_to_blogger(design_hint, url, images, tags or [])
+        post_to_blogger(design_hint, url, images, tags or [], description, collection)
     except Exception as e:
         print(f"⚠️ Blogger failed: {e}")
 
@@ -167,7 +167,7 @@ def run_video_post(images, url, design_hint):
     return result
 
 
-def run_reels_post(images, url, design_hint, tags=None):
+def run_reels_post(images, url, design_hint, tags=None, collection='', description=''):
     print("\n🎬 Generating Reels with voice...")
     script = generate_video_script(design_hint, url)
 
@@ -193,7 +193,7 @@ def run_reels_post(images, url, design_hint, tags=None):
 
     # Blogger SEO Article
     try:
-        post_to_blogger(design_hint, url, images, tags or [])
+        post_to_blogger(design_hint, url, images, tags or [], description, collection)
     except Exception as e:
         print(f"⚠️ Blogger failed: {e}")
 
@@ -319,7 +319,7 @@ def main():
     result = None
 
     if active_post_type in ('album', 'carousel'):
-        result = run_album_post(sorted_images, target_url, design_hint, target.get('tags', []))
+        result = run_album_post(sorted_images, target_url, design_hint, target.get('tags', []), target.get('collection', ''), target.get('description', ''))
 
     elif active_post_type == 'single':
         result = run_single_post(sorted_images, target_url, design_hint)
@@ -334,13 +334,13 @@ def main():
         result = run_video_post(sorted_images, target_url, design_hint)
 
     elif active_post_type == 'reels':
-        result = run_reels_post(sorted_images, target_url, design_hint, target.get('tags', []))
+        result = run_reels_post(sorted_images, target_url, design_hint, target.get('tags', []), target.get('collection', ''), target.get('description', ''))
 
     elif active_post_type == 'all':
         # كل الأنواع
         results = {}
         for ptype, fn in [
-            ('album', lambda: run_album_post(sorted_images, target_url, design_hint, target.get('tags', []))),
+            ('album', lambda: run_album_post(sorted_images, target_url, design_hint, target.get('tags', []), target.get('collection', ''), target.get('description', ''))),
             ('single', lambda: run_single_post(sorted_images, target_url, design_hint)),
             ('link', lambda: run_link_post(target_url)),
         ]:
