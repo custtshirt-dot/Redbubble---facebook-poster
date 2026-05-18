@@ -585,22 +585,24 @@ def post_to_blogger(design_hint: str, product_url: str, images: list,
     # 4. Build HTML
     html = build_html(article, design_hint, product_url, hosted, user_tags, user_description)
 
-    # 5. Merge labels — clean empties and strip whitespace
+    # 5. Merge labels — clean empties, strip whitespace, remove special chars
     ai_labels  = article.get('labels', [])
     collection_label = [collection] if collection else []
     raw_labels = collection_label + user_tags + ai_labels
     all_labels = list(dict.fromkeys(
-        lbl.strip() for lbl in raw_labels
+        re.sub(r'[^\w\s\-]', '', lbl).strip()
+        for lbl in raw_labels
         if lbl and isinstance(lbl, str) and lbl.strip()
-    ))[:20]
+    ))
+    all_labels = [l for l in all_labels if l and len(l) <= 150][:20]
 
     # 6. Publish
     payload = {
-        'kind':    'blogger#post',
-        'title':   article.get('seo_title', f'{design_hint} — Shop on Redbubble'),
+        'title':   article.get('seo_title', f'{design_hint} - Shop on Redbubble'),
         'content': html,
-        'labels':  all_labels,
     }
+    if all_labels:
+        payload['labels'] = all_labels
 
     try:
         resp = requests.post(
@@ -623,9 +625,13 @@ def post_to_blogger(design_hint: str, product_url: str, images: list,
             print(f"   🖼️  Images : {len(hosted)}")
             return {'success': True, 'post_id': data['id'], 'url': post_url, 'title': payload['title']}
         else:
-            err = data.get('error', {}).get('message', str(data))
-            print(f"   ❌ Blogger error: {err}")
-            return {'success': False, 'error': err}
+            err_obj  = data.get('error', {})
+            err_msg  = err_obj.get('message', str(data))
+            err_errs = err_obj.get('errors', [])
+            print(f"   ❌ Blogger error [{resp.status_code}]: {err_msg}")
+            for e in err_errs:
+                print(f"      • {e.get('reason','?')}: {e.get('message','?')} (field: {e.get('location','?')})")
+            return {'success': False, 'error': err_msg}
 
     except Exception as e:
         print(f"   ❌ Publish failed: {e}")
