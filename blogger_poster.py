@@ -586,11 +586,13 @@ def build_html(data: dict, design_hint: str, product_url: str,
 
 def post_to_blogger(design_hint: str, product_url: str, images: list,
                     user_tags: list = None,
-                    user_description: str = '') -> dict:
+                    user_description: str = '',
+                    collection: str = '') -> dict:
     """
     ينشر مقالة SEO احترافية على Blogger
     - user_tags: التاجات من designs.txt
     - user_description: الوصف من designs.txt (بعد | الثاني)
+    - collection: اسم الكولكشن (اختياري)
     """
     if not BLOGGER_BLOG_ID:
         print("⚠️ BLOGGER_BLOG_ID not set — skipping")
