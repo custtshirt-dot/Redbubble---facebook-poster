@@ -425,7 +425,7 @@ def _register_designs(all_designs: list) -> int:
     return new_count
 
 
-def get_next_product_to_post(store_url: str = None) -> dict | None:
+def get_next_product_to_post(store_url: str = None, exclude_urls: set = None) -> dict | None:
     """
     🧠 الدالة الرئيسية - بتختار التصميم الجاي بذكاء
 
@@ -436,6 +436,7 @@ def get_next_product_to_post(store_url: str = None) -> dict | None:
 
     بيرجع: {'url': str, 'title': str, 'is_new': bool} أو None
     """
+    exclude_urls = exclude_urls or set()
     history = load_designs_history()
     last_posted_url = history.get('last_posted_url')
 
@@ -519,12 +520,17 @@ def get_next_product_to_post(store_url: str = None) -> dict | None:
     # أولوية 1: التصاميم الجديدة (اليدوية أول ثم الستور)
     if never_posted:
         # اليدوية أول
-        manual_new = [d for d in never_posted if d.get('is_manual')]
-        store_new = [d for d in never_posted if not d.get('is_manual')]
-        chosen = (manual_new + store_new)[0]
-        chosen['is_new'] = True
-        print(f"\n✨ Chose NEW: {chosen['title'] or chosen['url'][:70]}")
-        return chosen
+        manual_new = [d for d in never_posted if d.get('is_manual') and d['url'] not in exclude_urls]
+        store_new = [d for d in never_posted if not d.get('is_manual') and d['url'] not in exclude_urls]
+        candidates = manual_new + store_new
+        if not candidates:
+            # لو كل الجديدة مستبعدة → انتقل للقديمة
+            never_posted = []
+        else:
+            chosen = candidates[0]
+            chosen['is_new'] = True
+            print(f"\n✨ Chose NEW: {chosen['title'] or chosen['url'][:70]}")
+            return chosen
 
     # أولوية 2: أقدم تصميم اتنشر مع تجنب التكرار والكول داون
     if posted_before:
@@ -535,6 +541,10 @@ def get_next_product_to_post(store_url: str = None) -> dict | None:
         skipped_cooldown = []
 
         for candidate in posted_before:
+            # تجنب التصاميم المستبعدة (جربناها وما فيهاش صور كافية)
+            if candidate['url'] in exclude_urls:
+                continue
+
             # تجنب التصميم اللي اتنشر قبله مباشرة
             if candidate['url'] == last_posted_url:
                 continue
