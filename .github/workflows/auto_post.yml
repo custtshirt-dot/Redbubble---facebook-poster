@@ -177,8 +177,8 @@ jobs:
             echo "ℹ️ No history changes"
           else
             git commit -m "📊 Update history [skip ci]"
-            git pull --rebase origin main
-            git push
+            git pull --rebase origin main || git rebase --abort
+            git push || (git pull --rebase origin main && git push)
             echo "✅ History saved!"
           fi
 
