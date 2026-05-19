@@ -256,15 +256,27 @@ def get_images_with_fallback(target: dict) -> tuple:
 
     images = extract_all_images(url)
 
-    # لو ما لقيناش صور كافية → جرب التاني
+    # لو ما لقيناش صور كافية → جرب حتى 5 تصاميم تانية
     if len(images) < 2 and not REDBUBBLE_URL:
-        print(f"⚠️ Not enough images ({len(images)}) — trying next design...")
-        next_product = get_next_product_to_post(REDBUBBLE_STORE_URL)
-        if next_product and next_product['url'] != url:
+        tried_urls = {url}
+        max_attempts = 5
+
+        for attempt in range(1, max_attempts + 1):
+            print(f"⚠️ Not enough images ({len(images)}) — trying next design (attempt {attempt}/{max_attempts})...")
+            next_product = get_next_product_to_post(REDBUBBLE_STORE_URL)
+            if not next_product or next_product['url'] in tried_urls:
+                print("⚠️ No more new designs to try.")
+                break
+
+            tried_urls.add(next_product['url'])
             url = next_product['url']
             title = next_product.get('title', '')
             is_new = next_product.get('is_new', False)
             images = extract_all_images(url)
+
+            if len(images) >= 2:
+                print(f"✅ Found enough images on attempt {attempt}")
+                break
 
     if len(images) < 2:
         print(f"❌ Not enough images ({len(images)}) even after fallback")
