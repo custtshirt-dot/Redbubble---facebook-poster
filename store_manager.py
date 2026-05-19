@@ -165,19 +165,19 @@ def load_manual_products() -> list:
 
 # ✅ الكوليكشنات المتاحة — مطابقة لـ Redbubble
 VALID_COLLECTIONS = {
-    'cat designs':   'Cat Designs',
-    'horror & dark': 'Horror & Dark',
-    'horror and dark': 'Horror & Dark',
-    'funny gifts':   'Funny Gifts',
-    'graphic tees':  'Graphic Tees',
-    'gift ideas':    'Gift Ideas',
+    'three legged legends':       'Three Legged Legends',
+    'whimsical illustrations':    'Whimsical Illustrations',
+    'islamic art':                'Islamic Art',
+    'motivational & inspirational': 'Motivational & Inspirational',
+    'motivational and inspirational': 'Motivational & Inspirational',
+    'spooky season vibes':        'Spooky Season Vibes',
 }
 COLLECTION_URLS = {
-    'Cat Designs':   'https://www.redbubble.com/people/cust-tshirts/shop?artistUserName=Cust-tshirts&collections=4463017&iaCode=all-departments&sortOrder=top%20selling',
-    'Horror & Dark': 'https://www.redbubble.com/people/cust-tshirts/shop?artistUserName=cust-tshirts&collections=4364050&iaCode=all-departments&sortOrder=top%20selling',
-    'Funny Gifts':   'https://www.redbubble.com/people/cust-tshirts/shop?artistUserName=cust-tshirts&collections=4372617&iaCode=all-departments&sortOrder=top%20selling',
-    'Graphic Tees':  'https://www.redbubble.com/people/cust-tshirts/shop?artistUserName=cust-tshirts&collections=4425787&iaCode=all-departments&sortOrder=top%20selling',
-    'Gift Ideas':    'https://www.redbubble.com/people/cust-tshirts/shop?artistUserName=cust-tshirts&collections=4367457&iaCode=all-departments&sortOrder=top%20selling',
+    'Three Legged Legends':          'https://www.redbubble.com/people/cust-tshirts/shop?artistUserName=Cust-tshirts&collections=4463017&iaCode=all-departments&sortOrder=top%20selling',
+    'Whimsical Illustrations':       'https://www.redbubble.com/people/cust-tshirts/shop?artistUserName=cust-tshirts&collections=4364050&iaCode=all-departments&sortOrder=top%20selling',
+    'Islamic Art':                   'https://www.redbubble.com/people/cust-tshirts/shop?artistUserName=cust-tshirts&collections=4372617&iaCode=all-departments&sortOrder=top%20selling',
+    'Motivational & Inspirational':  'https://www.redbubble.com/people/cust-tshirts/shop?artistUserName=cust-tshirts&collections=4425787&iaCode=all-departments&sortOrder=top%20selling',
+    'Spooky Season Vibes':           'https://www.redbubble.com/people/cust-tshirts/shop?artistUserName=cust-tshirts&collections=4367457&iaCode=all-departments&sortOrder=top%20selling',
 }
 
 DESIGNS_FILE = 'designs.txt'   # ✅ ملف الروابط — يتعدّل مباشرة على GitHub
@@ -372,17 +372,22 @@ def scrape_store_designs(store_url: str, max_pages: int = 5) -> list:
 
 
 def _fix_title_from_url(url: str) -> str:
-    """استخراج العنوان الصح من الـ URL"""
+    """استخراج العنوان الصح من الـ URL — يدعم /shop/ap/ و /i/product/"""
+    if '/shop/ap/' in url:
+        return ''  # /shop/ap/ مفيهاش عنوان — بيتاخد من التاجات
     url_parts = url.rstrip('/').split('/')
     slug = ''
     for part in url_parts:
-        if re.match(r'^\d{6,}', part):
+        if re.match(r'\d{6,}', part):
             break
         slug = part
     slug = re.sub(r'-by-\w.*$', '', slug)
     slug = re.sub(r'-\d+$', '', slug)
+    # شيل نوع المنتج
+    slug = re.sub(r'^(t-shirt|sticker|hoodie|mug|poster|phone-case|tote-bag|leggings|hat|mask|pin|notebook|card|scarf|beanie)-', '', slug)
     title = slug.replace('-', ' ').strip().title()[:80]
     return title if len(title) > 3 else ''
+''
 
 
 def _register_designs(all_designs: list) -> int:
