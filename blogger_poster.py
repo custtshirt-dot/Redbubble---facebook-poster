@@ -119,7 +119,7 @@ def fetch_product_images(product_url: str, max_images: int = 20) -> list:
 
 
 def prepare_images(token: str, product_url: str, design_hint: str) -> list:
-    """يجيب الصور من Redbubble مباشرةً — Picasa API أُغلقت نهائياً"""
+    """يجيب الصور ويحاول يرفعها على Blogger — fallback للروابط الأصلية"""
     print(f"   📥 Fetching product images...")
     raw_urls = fetch_product_images(product_url, max_images=20)
     if not raw_urls:
@@ -129,20 +129,63 @@ def prepare_images(token: str, product_url: str, design_hint: str) -> list:
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Referer': 'https://www.redbubble.com/',
     }
-    valid = []
-    for img_url in raw_urls[:MIN_IMAGES + 4]:
-        try:
-            r = requests.head(img_url, headers=headers, timeout=10, allow_redirects=True)
-            if r.status_code == 200:
-                valid.append(img_url)
-            if len(valid) >= MIN_IMAGES:
-                break
-        except Exception:
-            continue
+    uploaded = []
+    fallback = []
+    album_id = os.getenv('BLOGGER_ALBUM_ID', 'default')
+    api_url = f'https://picasaweb.google.com/data/feed/api/user/default/albumid/{album_id}'
 
-    result = valid if valid else raw_urls[:MIN_IMAGES]
-    print(f"   🖼️  Ready: {len(result)} CDN images")
-    return result
+    print(f"   ⬆️  Uploading {min(len(raw_urls), MIN_IMAGES)} images to Blogger...")
+
+    for i, img_url in enumerate(raw_urls[:MIN_IMAGES + 4]):
+        try:
+            r = requests.get(img_url, headers=headers, timeout=15)
+            if r.status_code != 200:
+                fallback.append(img_url)
+                continue
+            img_bytes = r.content
+            mime = r.headers.get('Content-Type', 'image/jpeg').split(';')[0].strip()
+            filename = f"{design_hint[:30].replace(' ', '_')}_{i+1}.jpg"
+
+            upload_resp = requests.post(
+                api_url,
+                headers={
+                    'Authorization': f'Bearer {token}',
+                    'Content-Type':  mime,
+                    'Slug':          filename[:50],
+                    'GData-Version': '2',
+                },
+                data=img_bytes,
+                timeout=30
+            )
+
+            hosted = None
+            if upload_resp.status_code in (200, 201):
+                for pattern in ['lh3.', 'lh4.', 'lh5.', 'lh6.']:
+                    idx = upload_resp.text.find(pattern)
+                    if idx >= 0:
+                        sq = upload_resp.text.rfind('"', 0, idx)
+                        eq = upload_resp.text.find('"', idx)
+                        if sq >= 0 and eq > idx:
+                            hosted = upload_resp.text[sq+1:eq]
+                            break
+
+            if hosted:
+                uploaded.append(hosted)
+                print(f"      ✅ Image {i+1} uploaded to Blogger")
+            else:
+                fallback.append(img_url)
+                print(f"      ⚠️ Image {i+1} — using original URL")
+
+        except Exception as e:
+            fallback.append(img_url)
+            print(f"      ⚠️ Image {i+1} error: {e}")
+
+        if len(uploaded) + len(fallback) >= MIN_IMAGES:
+            break
+
+    all_imgs = uploaded + fallback
+    print(f"   🖼️  Ready: {len(uploaded)} on Blogger + {len(fallback)} CDN = {len(all_imgs)} total")
+    return all_imgs
 
 
 # ══════════════════════════════════════════════════════════════
@@ -495,7 +538,7 @@ def build_html(data: dict, design_hint: str, product_url: str,
 {gift_list_items}
 </ol>
 
-{quote_box(f"The perfect gift isn't expensive — it's thoughtful. The {design_hint} design is exactly that.")}
+{quote_box(f'The perfect gift isn\'t expensive — it\'s thoughtful. The {design_hint} design is exactly that.')}
 
 {get(6) if len(images) > 6 else ''}
 
@@ -540,13 +583,11 @@ def build_html(data: dict, design_hint: str, product_url: str,
 
 def post_to_blogger(design_hint: str, product_url: str, images: list,
                     user_tags: list = None,
-                    user_description: str = '',
-                    collection: str = '') -> dict:
+                    user_description: str = '') -> dict:
     """
     ينشر مقالة SEO احترافية على Blogger
     - user_tags: التاجات من designs.txt
     - user_description: الوصف من designs.txt (بعد | الثاني)
-    - collection: اسم الكوليكشن (يُضاف كـ label تلقائياً)
     """
     if not BLOGGER_BLOG_ID:
         print("⚠️ BLOGGER_BLOG_ID not set — skipping")
@@ -585,24 +626,16 @@ def post_to_blogger(design_hint: str, product_url: str, images: list,
     # 4. Build HTML
     html = build_html(article, design_hint, product_url, hosted, user_tags, user_description)
 
-    # 5. Merge labels — clean empties, strip whitespace, remove special chars
+    # 5. Merge labels
     ai_labels  = article.get('labels', [])
-    collection_label = [collection] if collection else []
-    raw_labels = collection_label + user_tags + ai_labels
-    all_labels = list(dict.fromkeys(
-        re.sub(r'[^\w\s\-]', '', lbl).strip()
-        for lbl in raw_labels
-        if lbl and isinstance(lbl, str) and lbl.strip()
-    ))
-    all_labels = [l for l in all_labels if l and len(l) <= 150][:20]
+    all_labels = list(dict.fromkeys(user_tags + ai_labels))[:20]
 
     # 6. Publish
     payload = {
-        'title':   article.get('seo_title', f'{design_hint} - Shop on Redbubble'),
+        'title':   article.get('seo_title', f'{design_hint} — Shop on Redbubble'),
         'content': html,
+        'labels':  all_labels,
     }
-    if all_labels:
-        payload['labels'] = all_labels
 
     try:
         resp = requests.post(
@@ -625,13 +658,9 @@ def post_to_blogger(design_hint: str, product_url: str, images: list,
             print(f"   🖼️  Images : {len(hosted)}")
             return {'success': True, 'post_id': data['id'], 'url': post_url, 'title': payload['title']}
         else:
-            err_obj  = data.get('error', {})
-            err_msg  = err_obj.get('message', str(data))
-            err_errs = err_obj.get('errors', [])
-            print(f"   ❌ Blogger error [{resp.status_code}]: {err_msg}")
-            for e in err_errs:
-                print(f"      • {e.get('reason','?')}: {e.get('message','?')} (field: {e.get('location','?')})")
-            return {'success': False, 'error': err_msg}
+            err = data.get('error', {}).get('message', str(data))
+            print(f"   ❌ Blogger error: {err}")
+            return {'success': False, 'error': err}
 
     except Exception as e:
         print(f"   ❌ Publish failed: {e}")
