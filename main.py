@@ -263,7 +263,7 @@ def get_images_with_fallback(target: dict) -> tuple:
 
         for attempt in range(1, max_attempts + 1):
             print(f"⚠️ Not enough images ({len(images)}) — trying next design (attempt {attempt}/{max_attempts})...")
-            next_product = get_next_product_to_post(REDBUBBLE_STORE_URL)
+            next_product = get_next_product_to_post(REDBUBBLE_STORE_URL, exclude_urls=tried_urls)
             if not next_product or next_product['url'] in tried_urls:
                 print("⚠️ No more new designs to try.")
                 break
