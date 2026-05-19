@@ -481,6 +481,9 @@ def build_html(data: dict, design_hint: str, product_url: str,
         f'</div>'
     )
 
+    gift_quote_text = f"The perfect gift isn't expensive \u2014 it's thoughtful. The {design_hint} design is exactly that."
+    gift_quote_html = quote_box(gift_quote_text)
+
     return f'''<div style="font-family:Georgia,'Times New Roman',serif;max-width:820px;margin:0 auto;line-height:1.82;color:#2d2d2d;font-size:1.02em;">
 
 <!-- ── META ── -->
@@ -538,7 +541,7 @@ def build_html(data: dict, design_hint: str, product_url: str,
 {gift_list_items}
 </ol>
 
-{quote_box(f'The perfect gift isn\'t expensive — it\'s thoughtful. The {design_hint} design is exactly that.')}
+{gift_quote_html}
 
 {get(6) if len(images) > 6 else ''}
 
