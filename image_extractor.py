@@ -24,8 +24,49 @@ LIGHT_KEYWORDS = [
 ]
 
 
+def _convert_shop_ap_url(url: str) -> str:
+    """
+    ✅ يحول رابط /shop/ap/WORK_ID لرابط /i/t-shirt/ عشان يجيب كل الصور
+    /shop/ap/ بيرجع صورة واحدة بس — نحتاج رابط المنتج الكامل
+    """
+    import re as _re
+    if '/shop/ap/' not in url:
+        return url
+    work_id_m = _re.search(r'/shop/ap/(\d+)', url)
+    if not work_id_m:
+        return url
+    work_id = work_id_m.group(1)
+    print(f"   🔄 /shop/ap/ detected — fetching product slug for work_id {work_id}...")
+    try:
+        # اجيب الصفحة عشان نجيب الـ slug
+        r = requests.get(url, headers=HEADERS, timeout=20)
+        html = r.text
+        # ابحث عن رابط /i/ في الصفحة
+        m = _re.search(r'href=["\'](/i/[^"\'?#]+/' + work_id + r'[^"\'?#]*)["\']>', html)
+        if m:
+            full_url = 'https://www.redbubble.com' + m.group(1)
+            print(f"   ✅ Found product URL: {full_url[:70]}")
+            return full_url
+        # fallback: ابحث عن canonical link
+        m2 = _re.search(r'<link[^>]+rel=["\']canonical["\'][^>]+href=["\']([^"\']+)["\']>', html)
+        if m2 and work_id in m2.group(1):
+            print(f"   ✅ Canonical: {m2.group(1)[:70]}")
+            return m2.group(1)
+        # fallback 2: جرب /i/t-shirt مباشرة
+        fallback_url = f'https://www.redbubble.com/i/t-shirt/Design-{work_id}/' + work_id + '/WFBAH'
+        print(f"   ⚠️ Using fallback URL")
+        return fallback_url
+    except Exception as e:
+        print(f"   ⚠️ Conversion failed: {e}")
+        return url
+
+
 def extract_all_images(url):
-    """استخراج كل صور المنتجات من Redbubble"""
+    """استخراج كل صور المنتجات من Redbubble — يدعم /shop/ap/ و /i/ """
+    # ✅ حوّل /shop/ap/ لرابط كامل عشان تجيب كل الصور
+    if '/shop/ap/' in url:
+        url = _convert_shop_ap_url(url)
+
     print(f"🔍 Fetching: {url}")
     try:
         r = requests.get(url, headers=HEADERS, timeout=30)
@@ -35,6 +76,26 @@ def extract_all_images(url):
         )
         all_images = pattern.findall(html)
         unique = list(dict.fromkeys(all_images))
+
+        # ✅ لو لسه قليل — جرب استخراج من __NEXT_DATA__
+        if len(unique) < 5:
+            import json as _json
+            nd = re.search(
+                r'<script[^>]+id=["\']__NEXT_DATA__["\'][^>]*>(.+?)</script>',
+                html, re.DOTALL
+            )
+            if nd:
+                try:
+                    raw = nd.group(1)
+                    for m in re.finditer(
+                        r'(https://ih\d+\.redbubble\.net/image\.[^"\'\\s]+)', raw
+                    ):
+                        img = m.group(1).split('?')[0]
+                        if img not in unique:
+                            unique.append(img)
+                except Exception:
+                    pass
+
         print(f"✅ Found {len(unique)} unique product images")
         return unique
     except Exception as e:
