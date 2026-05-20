@@ -66,11 +66,11 @@ permissions:
 
 jobs:
   # ════════════════════════════════════════════════════════════
-  # 🚀 JOB 1 — البوست الأوتوماتيك
+  # 📋 JOB 1 — تحديث الكتالوج
   # ════════════════════════════════════════════════════════════
-  smart-post:
+  update-catalog:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
 
     steps:
       - name: 📥 Checkout code
@@ -79,7 +79,61 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 1
 
-      - name: 🐍 Setup Python 3.11
+      - name: 🐍 Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 📋 Update all_designs.json
+        env:
+          REDBUBBLE_STORE_URL: ${{ secrets.REDBUBBLE_STORE_URL }}
+          FB_PAGE_ID:          ${{ secrets.FB_PAGE_ID }}
+          FB_TOKEN:            ${{ secrets.FB_TOKEN }}
+        run: |
+          echo "UTC  : $(date -u '+%Y-%m-%d %H:%M')"
+          echo "Egypt: $(TZ='Africa/Cairo' date '+%Y-%m-%d %H:%M %Z')"
+          python update_catalog.py
+
+      - name: 💾 Save catalog to repository
+        if: always()
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name  "github-actions[bot]"
+          git add -f all_designs.json 2>/dev/null || true
+          if git diff --staged --quiet; then
+            echo "ℹ️ No catalog changes"
+          else
+            git commit -m "📋 Daily catalog update [skip ci]"
+            git pull --rebase origin main
+            git push
+            echo "✅ Catalog saved!"
+          fi
+
+  # ════════════════════════════════════════════════════════════
+  # 🚀 JOB 2 — البوست الأوتوماتيك (بعد الكتالوج بـ 3 ثواني)
+  # ════════════════════════════════════════════════════════════
+  smart-post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: update-catalog
+    if: always()
+
+    steps:
+      - name: ⏳ Wait 3 seconds
+        run: sleep 3
+
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 1
+
+      - name: 🐍 Setup Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -101,7 +155,6 @@ jobs:
         run: |
           HOUR=$(date +%-H)
           IDX=$((HOUR / 3))
-          # ✅ يتبادل بين album و reels — زوجي=album / فردي=reels
           if [ $((IDX % 2)) -eq 0 ]; then
             POST_TYPE_AUTO="album"
           else
@@ -200,55 +253,3 @@ jobs:
         run: |
           echo "⚠️ Failed — Trigger: ${{ github.event_name }}"
           echo "Check FB_TOKEN and secrets in repo settings"
-
-  # ════════════════════════════════════════════════════════════
-  # 📋 JOB 2 — تحديث الكتالوج يومياً الساعة 7 UTC (9 مصر)
-  # ════════════════════════════════════════════════════════════
-  update-catalog:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'schedule' && startsWith(github.event.schedule, '0 7'))
-
-    steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 1
-
-      - name: 🐍 Setup Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: 📦 Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: 📋 Update all_designs.json
-        env:
-          REDBUBBLE_STORE_URL: ${{ secrets.REDBUBBLE_STORE_URL }}
-          FB_PAGE_ID:          ${{ secrets.FB_PAGE_ID }}
-          FB_TOKEN:            ${{ secrets.FB_TOKEN }}
-        run: |
-          echo "UTC  : $(date -u '+%Y-%m-%d %H:%M')"
-          echo "Egypt: $(TZ='Africa/Cairo' date '+%Y-%m-%d %H:%M %Z')"
-          python update_catalog.py
-
-      - name: 💾 Save catalog to repository
-        if: always()
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name  "github-actions[bot]"
-          git add -f all_designs.json 2>/dev/null || true
-          if git diff --staged --quiet; then
-            echo "ℹ️ No catalog changes"
-          else
-            git commit -m "📋 Daily catalog update [skip ci]"
-            git pull --rebase origin main
-            git push
-            echo "✅ Catalog saved!"
-          fi
