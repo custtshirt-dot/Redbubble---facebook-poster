@@ -100,12 +100,22 @@ def scrape_design_data(product_url: str) -> dict:
         'products': [],
     }
     try:
-        # follow_redirects=True عشان نوصل للصفحة الحقيقية مش الريدايركت
-        resp = requests.get(product_url, headers=headers, timeout=25, allow_redirects=True)
-        # لو اتريدايركت لصفحة مش /i/ خليه يجرب URL التاني
-        final_url = resp.url
-        if '/i/' not in final_url and '/shop/ap/' not in product_url:
-            print(f"   ⚠️ Redirected to: {final_url[:70]}")
+        # لو /shop/ap/ URL — حوله لـ /i/ أولاً عشان نجيب البيانات الصح
+        scrape_url = product_url
+        if '/shop/ap/' in product_url:
+            import re as _re2
+            work_id_m = _re2.search(r'/shop/ap/(\d+)', product_url)
+            if work_id_m:
+                try:
+                    r0 = requests.get(product_url, headers=headers, timeout=20, allow_redirects=True)
+                    m0 = _re2.search(r'(https://www\.redbubble\.com/i/[^"\' ?#]+)', r0.text)
+                    if m0:
+                        scrape_url = m0.group(1)
+                        print(f"   🔄 Scraping from: {scrape_url[:70]}")
+                except Exception:
+                    pass
+
+        resp = requests.get(scrape_url, headers=headers, timeout=25, allow_redirects=True)
         html = resp.text
 
         # ── 1. العنوان ─────────────────────────────────────────
@@ -134,10 +144,20 @@ def scrape_design_data(product_url: str) -> dict:
                 data = json.loads(nd.group(1))
                 raw_json = json.dumps(data)
 
-                # Tags
-                tag_matches = re.findall(r'"tag"\s*:\s*"([^"]+)"', raw_json)
-                if not tag_matches:
-                    tag_matches = re.findall(r'"tags"\s*:\s*\[([^\]]+)\]', raw_json)
+                # Tags — جرب كل الأنماط الممكنة
+                tag_matches = []
+                for pat in [
+                    r'"tag"\s*:\s*"([^"]+)"',
+                    r'"tagName"\s*:\s*"([^"]+)"',
+                    r'"keyword"\s*:\s*"([^"]+)"',
+                    r'"keywords"\s*:\s*"([^"]+)"',
+                    r'"label"\s*:\s*"([a-z][a-z\s\-]{2,30})"',
+                ]:
+                    found = re.findall(pat, raw_json, re.IGNORECASE)
+                    tag_matches.extend(found)
+                # فلترة: بعيد عن الكلمات الغلط
+                skip = {'true','false','null','undefined','redbubble','cust','tshirts','shop','store'}
+                tag_matches = [t for t in tag_matches if len(t) > 2 and t.lower() not in skip]
                 result['tags'] = list(dict.fromkeys(tag_matches))[:20]
 
                 # Products from JSON
