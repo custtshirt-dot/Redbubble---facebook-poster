@@ -103,7 +103,7 @@ def run_album_post(images, url, design_hint, tags=None, collection='', descripti
 
     # Blogger SEO Article
     try:
-        post_to_blogger(design_hint, url, images, tags or [], description, collection)
+        post_to_blogger(design_hint, url, fb_images, tags or [], description, collection)
     except Exception as e:
         print(f"⚠️ Blogger failed: {e}")
 
