@@ -70,10 +70,14 @@ def _convert_shop_ap_url(url: str) -> str:
 
 
 def extract_all_images(url):
-    """استخراج كل صور المنتجات من Redbubble — يدعم /shop/ap/ و /i/ """
+    """استخراج كل صور المنتجات من Redbubble — يدعم /shop/ap/ و /i/
+    بيرجع: list of image URLs (الـ converted URL محفوظ في extract_all_images.resolved_url)
+    """
     # ✅ حوّل /shop/ap/ لرابط كامل عشان تجيب كل الصور
+    extract_all_images.resolved_url = url  # default
     if '/shop/ap/' in url:
         url = _convert_shop_ap_url(url)
+        extract_all_images.resolved_url = url  # الـ /i/ URL الحقيقي
 
     print(f"🔍 Fetching: {url}")
     try:
