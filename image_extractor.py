@@ -52,10 +52,18 @@ def _convert_shop_ap_url(url: str) -> str:
         if m2 and work_id in m2.group(1):
             print(f"   ✅ Canonical: {m2.group(1)[:70]}")
             return m2.group(1)
-        # fallback 2: جرب /i/t-shirt مباشرة
-        fallback_url = f'https://www.redbubble.com/i/t-shirt/Design-{work_id}/' + work_id + '/WFBAH'
-        print(f"   ⚠️ Using fallback URL")
-        return fallback_url
+        # fallback 2: ابحث عن أي /i/ link في الصفحة
+        import re as _re2
+        m3 = _re2.search(r'["\']((https://www\.redbubble\.com)?/i/[^"\' ?#]+)["\']', html)
+        if m3:
+            found = m3.group(1)
+            if not found.startswith('http'):
+                found = 'https://www.redbubble.com' + found
+            print(f"   ✅ Found /i/ URL from page: {found[:70]}")
+            return found
+        # fallback 3: رجّع الـ URL الأصلي عشان نستخرج الصور منه مباشرة
+        print(f"   ⚠️ Could not find /i/ URL, extracting from original page")
+        return url
     except Exception as e:
         print(f"   ⚠️ Conversion failed: {e}")
         return url
