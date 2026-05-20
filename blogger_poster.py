@@ -596,9 +596,6 @@ def post_to_blogger(design_hint: str, product_url: str, images: list,
 
     print("\n📝 Publishing SEO article to Blogger...")
 
-    # ✅ Blogger يستخدم 12 صورة بس
-    images = images[:12]
-
     if user_tags is None:
         user_tags = []
 
