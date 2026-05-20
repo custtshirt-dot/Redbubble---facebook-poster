@@ -300,7 +300,9 @@ def main():
     sorted_images = smart_sort_images(images, MAX_IMAGES)
 
     # ── تحليل التصميم بالـ AI ────────────────────────────────
-    design_hint = generate_design_hint(target_url, ' '.join(images[:5]))
+    # استخدم الـ /i/ URL الحقيقي لاستخراج اسم التصميم بدقة
+    resolved_url = getattr(extract_all_images, 'resolved_url', target_url)
+    design_hint = generate_design_hint(resolved_url, ' '.join(images[:5]))
 
     # ── اختيار نوع البوست ───────────────────────────────────
     active_post_type = get_post_type_for_this_run()
