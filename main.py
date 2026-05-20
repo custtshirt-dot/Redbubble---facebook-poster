@@ -85,7 +85,7 @@ def run_album_post(images, url, design_hint, tags=None, collection='', descripti
     caption = generate_ai_caption('album', url, design_hint)
 
     # Facebook: 30 صورة كاملة
-    fb_images = images[:30]
+    fb_images = images[:10]
     print(f"\n📸 Facebook Album: {len(fb_images)} photos")
     result = post_album(fb_images, caption)
 
