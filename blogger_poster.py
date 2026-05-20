@@ -100,7 +100,12 @@ def scrape_design_data(product_url: str) -> dict:
         'products': [],
     }
     try:
-        resp = requests.get(product_url, headers=headers, timeout=25)
+        # follow_redirects=True عشان نوصل للصفحة الحقيقية مش الريدايركت
+        resp = requests.get(product_url, headers=headers, timeout=25, allow_redirects=True)
+        # لو اتريدايركت لصفحة مش /i/ خليه يجرب URL التاني
+        final_url = resp.url
+        if '/i/' not in final_url and '/shop/ap/' not in product_url:
+            print(f"   ⚠️ Redirected to: {final_url[:70]}")
         html = resp.text
 
         # ── 1. العنوان ─────────────────────────────────────────
@@ -158,7 +163,13 @@ def scrape_design_data(product_url: str) -> dict:
             tag_html = re.findall(r'["\']tag["\']:\s*["\']([^"\']+)["\']', html)
             result['tags'] = list(dict.fromkeys(tag_html))[:20]
 
-        print(f"   📌 Title   : {result['title'][:60]}")
+        # ── تنظيف العنوان — لو جاب عنوان عام مش عنوان التصميم ──
+        bad_titles = ['redbubble', 'logo', 'home', 'shop', 'store', '404', 'error']
+        if any(b in result['title'].lower() for b in bad_titles):
+            print(f"   ⚠️ Bad title detected ('{result['title']}') — will use design_hint")
+            result['title'] = ''
+
+        print(f"   📌 Title   : {result['title'][:60] or '(none — will use design_hint)'}")
         print(f"   📝 Desc    : {result['description'][:80]}")
         print(f"   🏷️  Tags   : {result['tags'][:6]}")
         print(f"   📦 Products: {result['products'][:6]}")
