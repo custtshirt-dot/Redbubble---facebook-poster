@@ -609,15 +609,19 @@ def post_to_blogger(design_hint: str, product_url: str, images: list,
     if not token:
         return {'success': False, 'error': 'Auth failed'}
 
-    # 2. Images
-    hosted = prepare_images(token, product_url, design_hint)
-    if len(hosted) < MIN_IMAGES:
-        extra = fetch_product_images(product_url, max_images=20)
-        for u in extra:
-            if u not in hosted:
-                hosted.append(u)
-            if len(hosted) >= MIN_IMAGES:
-                break
+    # 2. Images — استخدم الصور اللي اتبعتت من main.py مباشرة
+    if images and len(images) >= 3:
+        hosted = list(images)
+        print(f"   🖼️  Using {len(hosted)} images passed from main")
+    else:
+        hosted = prepare_images(token, product_url, design_hint)
+        if len(hosted) < MIN_IMAGES:
+            extra = fetch_product_images(product_url, max_images=20)
+            for u in extra:
+                if u not in hosted:
+                    hosted.append(u)
+                if len(hosted) >= MIN_IMAGES:
+                    break
     print(f"   🖼️  Total images: {len(hosted)}")
 
     # 3. Generate article
