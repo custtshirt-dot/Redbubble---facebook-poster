@@ -538,7 +538,7 @@ def build_html(data: dict, design_hint: str, product_url: str,
 {gift_list_items}
 </ol>
 
-{quote_box(f'The perfect gift isn\'t expensive — it\'s thoughtful. The {design_hint} design is exactly that.')}
+{quote_box(f"The perfect gift isn't expensive — it's thoughtful. The {design_hint} design is exactly that.")}
 
 {get(6) if len(images) > 6 else ''}
 
