@@ -583,7 +583,8 @@ def build_html(data: dict, design_hint: str, product_url: str,
 
 def post_to_blogger(design_hint: str, product_url: str, images: list,
                     user_tags: list = None,
-                    user_description: str = '') -> dict:
+                    user_description: str = '',
+                    collection: str = '') -> dict:
     """
     ينشر مقالة SEO احترافية على Blogger
     - user_tags: التاجات من designs.txt
