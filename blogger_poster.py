@@ -137,56 +137,75 @@ def scrape_design_data(product_url: str) -> dict:
             if m2:
                 result['description'] = m2.group(1).strip()
 
-        # ── 3. التاجات من __NEXT_DATA__ ────────────────────────
-        nd = re.search(r'<script[^>]+id=["\']__NEXT_DATA__["\'][^>]*>(.+?)</script>', html, re.DOTALL)
+        # ── 3. التاجات والمنتجات من __NEXT_DATA__ ─────────────
+        nd = re.search(r'<script[^>]+id=["\'__NEXT_DATA__\"\'][^>]*>(.+?)</script>', html, re.DOTALL)
         if nd:
             try:
                 data = json.loads(nd.group(1))
                 raw_json = json.dumps(data)
 
-                # Tags — جرب كل الأنماط الممكنة
+                # Tags — ابحث عن "tags" array أو كلمات متكررة
+                # Redbubble بيحط التاجات في "tags":[{"name":"..."}, ...]
+                tag_names = re.findall(r'"tags"\s*:\s*\[([^\]]+)\]', raw_json)
                 tag_matches = []
-                for pat in [
-                    r'"tag"\s*:\s*"([^"]+)"',
-                    r'"tagName"\s*:\s*"([^"]+)"',
-                    r'"keyword"\s*:\s*"([^"]+)"',
-                    r'"keywords"\s*:\s*"([^"]+)"',
-                    r'"label"\s*:\s*"([a-z][a-z\s\-]{2,30})"',
-                ]:
-                    found = re.findall(pat, raw_json, re.IGNORECASE)
-                    tag_matches.extend(found)
-                # فلترة: بعيد عن الكلمات الغلط
-                skip = {'true','false','null','undefined','redbubble','cust','tshirts','shop','store'}
-                tag_matches = [t for t in tag_matches if len(t) > 2 and t.lower() not in skip]
+                for block in tag_names:
+                    names = re.findall(r'"name"\s*:\s*"([^"]+)"', block)
+                    tag_matches.extend(names)
+                # fallback: ابحث عن "name" داخل tag objects
+                if not tag_matches:
+                    tag_matches = re.findall(r'"name"\s*:\s*"([a-z][a-z\s\-]{2,40})"', raw_json, re.IGNORECASE)
+                # فلترة الكلمات الغلط
+                skip_words = {
+                    'primary','supplementary','supplementary2','supplementary3',
+                    'supplementary4','supplementary5','true','false','null',
+                    'undefined','redbubble','cust','tshirts','shop','store',
+                    'default','standard','main','other','none','all','new'
+                }
+                tag_matches = [t.strip() for t in tag_matches
+                               if len(t.strip()) > 2 and t.strip().lower() not in skip_words]
                 result['tags'] = list(dict.fromkeys(tag_matches))[:20]
 
-                # Products from JSON
+                # Products — "productName" أو "name" مع كلمات منتجات
                 prod_matches = re.findall(r'"productName"\s*:\s*"([^"]+)"', raw_json)
                 if not prod_matches:
-                    prod_matches = re.findall(r'"name"\s*:\s*"([A-Z][a-zA-Z\s\-]+(?:T-Shirt|Hoodie|Sticker|Mug|Poster|Case|Bag|Print|Pillow|Notebook|Leggings|Dress|Scarf|Skin|Sleeve|Card|Hat|Mask|Magnet|Bottle)[^"]*)"', raw_json)
+                    prod_matches = re.findall(
+                        r'"name"\s*:\s*"([A-Z][a-zA-Z\s\-]+'
+                        r'(?:T-Shirt|Hoodie|Sticker|Mug|Poster|Case|Bag|Print|'
+                        r'Pillow|Notebook|Leggings|Dress|Scarf|Skin|Sleeve|'
+                        r'Card|Hat|Mask|Magnet|Bottle)[^"]*)"', raw_json)
                 result['products'] = list(dict.fromkeys(prod_matches))[:30]
             except Exception:
                 pass
 
-        # ── 4. المنتجات من HTML مباشرة (backup) ───────────────
+        # ── 4. المنتجات من HTML (backup) ───────────────────────
         if not result['products']:
             prod_html = re.findall(
-                r'(?:T-Shirt|Hoodie|Sticker|Mug|Poster|Phone Case|Tote Bag|'
-                r'Art Print|Canvas|Leggings|Notebook|Pillow|Sweatshirt|'
-                r'Water Bottle|Travel Mug|Laptop Skin|Greeting Card|Dress|Scarf)',
+                r'(?:Classic T-Shirt|Fitted T-Shirt|Pullover Hoodie|Zip Hoodie|'
+                r'Sticker|Transparent Sticker|Mug|Travel Mug|Water Bottle|'
+                r'Phone Case|Tote Bag|Drawstring Bag|Throw Pillow|Art Print|'
+                r'Poster|Canvas Print|Photographic Print|Leggings|Dress|Scarf|'
+                r'Laptop Skin|Spiral Notebook|Greeting Card|Pullover Sweatshirt|'
+                r'Bucket Hat|Magnet|Face Mask)',
                 html
             )
             result['products'] = list(dict.fromkeys(prod_html))[:30]
 
-        # ── 5. التاجات من HTML (backup) ────────────────────────
+        # ── 5. التاجات من meta keywords (backup) ───────────────
         if not result['tags']:
-            tag_html = re.findall(r'["\']tag["\']:\s*["\']([^"\']+)["\']', html)
-            result['tags'] = list(dict.fromkeys(tag_html))[:20]
+            m_kw = re.search(
+                r'<meta[^>]+name=["\'keywords\"\'][^>]+content=["\'([^\"\']+ )[\"\']', html)
+            if m_kw:
+                result['tags'] = [t.strip() for t in m_kw.group(1).split(',') if t.strip()][:20]
 
-        # ── تنظيف العنوان — لو جاب عنوان عام مش عنوان التصميم ──
+        # ── تنظيف العنوان من HTML entities ────────────────────
+        import html as _html
+        result['title'] = _html.unescape(result['title']).strip('"').strip()
+        result['description'] = _html.unescape(result['description'])
+
+        # ── تشيك على العناوين الغلط ────────────────────────────
         bad_titles = ['redbubble', 'logo', 'home', 'shop', 'store', '404', 'error']
         if any(b in result['title'].lower() for b in bad_titles):
-            print(f"   ⚠️ Bad title detected ('{result['title']}') — will use design_hint")
+            print(f"   ⚠️ Bad title ('{result['title']}') — using design_hint")
             result['title'] = ''
 
         print(f"   📌 Title   : {result['title'][:60] or '(none — will use design_hint)'}")
