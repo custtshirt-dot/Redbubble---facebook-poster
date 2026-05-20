@@ -1,7 +1,7 @@
 {
-  "last_posted_url": "https://www.redbubble.com/shop/ap/180293311",
+  "last_posted_url": "https://www.redbubble.com/shop/ap/179486711",
   "last_check": "2026-05-20T08:44:23.581029",
-  "total_posts": 61,
+  "total_posts": 62,
   "designs": {
     "474f95f0d6cc9c": {
       "url": "https://www.redbubble.com/i/sticker/Grumpy-Angry-Eyes-T-Shirt-Funny-Sarcastic-Gift-for-Introverts-by-Cust-tshirts/174866606/7sgk",
@@ -593,6 +593,14 @@
       "first_seen": "2026-05-20T08:54:02.844293",
       "post_count": 1,
       "last_posted": "2026-05-20T08:54:02.844299",
+      "is_manual": false
+    },
+    "0bdc2fdb0697b3": {
+      "url": "https://www.redbubble.com/shop/ap/179486711",
+      "title": "Manual",
+      "first_seen": "2026-05-20T09:00:25.585806",
+      "post_count": 1,
+      "last_posted": "2026-05-20T09:00:25.585812",
       "is_manual": false
     }
   }
