@@ -1,11 +1,20 @@
 {
-  "last_updated": "2026-05-21T18:29:11.790747",
+  "last_updated": "2026-05-21T21:06:40.079005",
   "store_url": "https://www.redbubble.com/people/cust-tshirts/shop",
   "total": 68,
-  "posted_count": 9,
-  "never_posted_count": 59,
-  "total_posts_made": 70,
+  "posted_count": 10,
+  "never_posted_count": 58,
+  "total_posts_made": 71,
   "designs": [
+    {
+      "title": "whimsical art",
+      "url": "https://www.redbubble.com/shop/ap/180924729",
+      "work_id": "180924729",
+      "post_count": 1,
+      "last_posted": "2026-05-21T18:30:25.105080",
+      "first_seen": "2026-05-21T16:04:39.574039",
+      "status": "✅ Posted"
+    },
     {
       "title": "tripawd cat mom",
       "url": "https://www.redbubble.com/shop/ap/177168089",
@@ -86,15 +95,6 @@
       "last_posted": "2026-05-20T20:44:49.365119",
       "first_seen": "2026-05-20T20:44:49.365112",
       "status": "✅ Posted"
-    },
-    {
-      "title": "whimsical art",
-      "url": "https://www.redbubble.com/shop/ap/180924729",
-      "work_id": "180924729",
-      "post_count": 0,
-      "last_posted": null,
-      "first_seen": "2026-05-21T16:04:39.574039",
-      "status": "🆕 Never Posted"
     },
     {
       "title": "cat mom gift",
