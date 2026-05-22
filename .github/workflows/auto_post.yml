@@ -66,11 +66,33 @@ permissions:
 
 jobs:
   # ════════════════════════════════════════════════════════════
+  # 🔄 JOB 0 — Keep-alive: يمنع GitHub من إيقاف الـ schedule
+  # ════════════════════════════════════════════════════════════
+  keep-alive:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: 🔄 Keep workflow active
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name  "github-actions[bot]"
+          echo "$(date -u)" > .github/keepalive
+          git add .github/keepalive
+          git diff --staged --quiet || (git commit -m "🔄 Keep-alive [skip ci]" && git push)
+
+
+  # ════════════════════════════════════════════════════════════
   # 📋 JOB 1 — تحديث الكتالوج
   # ════════════════════════════════════════════════════════════
   update-catalog:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    needs: [keep-alive]
+    if: always()
 
     steps:
       - name: 📥 Checkout code
@@ -130,6 +152,14 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 1
+
+      - name: 📦 Restore post history cache
+        uses: actions/cache@v4
+        with:
+          path: post_history.json
+          key: post-history-${{ github.run_id }}
+          restore-keys: |
+            post-history-
 
       - name: 🐍 Setup Python 3.12
         uses: actions/setup-python@v5
