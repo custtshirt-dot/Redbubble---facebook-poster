@@ -47,16 +47,16 @@ from history_manager import record_post, get_stats, is_duplicate
 # 🎲 SMART POST TYPE ROTATION (تنوع في المحتوى)
 # ══════════════════════════════════════════════════════════════
 
-# دوّرة من أنواع مختلفة عشان التنوع — ترتيب مدروس
+# دوّرة album/reels فقط — أفضل للإنجيجمنت
 POST_TYPE_CYCLE = [
-    'album',   # ألبوم صور — أوسع انتشار
-    'single',  # صورة واحدة — تركيز
-    'album',   # ألبوم تاني
-    'link',    # رابط مباشر
-    'single',  # صورة واحدة
-    'album',   # ألبوم تاني
-    'video',   # فيديو — إنجيجمنت عالي
+    'album',   # ألبوم صور
+    'reels',   # ريلز — إنجيجمنت عالي
     'album',   # ألبوم
+    'reels',   # ريلز
+    'album',   # ألبوم
+    'reels',   # ريلز
+    'album',   # ألبوم
+    'reels',   # ريلز
 ]
 
 
