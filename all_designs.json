@@ -1,9 +1,9 @@
 {
-  "last_updated": "2026-05-21T22:50:33.326786",
+  "last_updated": "2026-05-22T07:28:02.389931",
   "store_url": "https://www.redbubble.com/people/cust-tshirts/shop",
-  "total": 68,
+  "total": 69,
   "posted_count": 10,
-  "never_posted_count": 58,
+  "never_posted_count": 59,
   "total_posts_made": 72,
   "designs": [
     {
@@ -95,6 +95,15 @@
       "last_posted": "2026-05-20T20:44:49.365119",
       "first_seen": "2026-05-20T20:44:49.365112",
       "status": "✅ Posted"
+    },
+    {
+      "title": "chibi character",
+      "url": "https://www.redbubble.com/shop/ap/180937101",
+      "work_id": "180937101",
+      "post_count": 0,
+      "last_posted": null,
+      "first_seen": null,
+      "status": "🆕 Never Posted"
     },
     {
       "title": "cat mom gift",
