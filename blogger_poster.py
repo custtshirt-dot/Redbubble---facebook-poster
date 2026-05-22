@@ -121,18 +121,22 @@ def scrape_design_data(product_url: str) -> dict:
         resp = requests.get(scrape_url, headers=headers, timeout=25, allow_redirects=True)
         html = resp.text
 
-        # عنوان
-        m = re.search(r'<meta[^>]+property=["\'](og:title)["\'][^>]+content=["\'"]([^"\']+)["\']', html)
-        if m:
-            result['title'] = m.group(1).strip()
-        else:
-            m = re.search(r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']', html)
-            if m:
+        # عنوان — نجرب أكتر من pattern
+        title_patterns = [
+            r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']',
+            r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:title["\']',
+            r'"productTitle"\s*:\s*"([^"]+)"',
+            r'"title"\s*:\s*"([^"]{10,120})"',
+        ]
+        for pat in title_patterns:
+            m = re.search(pat, html)
+            if m and m.group(1).lower() not in ('og:title', 'og:description', ''):
                 result['title'] = m.group(1).strip()
-            else:
-                m2 = re.search(r'<title>([^<]+)</title>', html)
-                if m2:
-                    result['title'] = m2.group(1).split('|')[0].strip()
+                break
+        if not result['title']:
+            m2 = re.search(r'<title>([^<]+)</title>', html)
+            if m2:
+                result['title'] = m2.group(1).split('|')[0].strip()
 
         # وصف
         m = re.search(r'<meta[^>]+property=["\']og:description["\'][^>]+content=["\']([^"\']+)["\']', html)
@@ -158,10 +162,26 @@ def scrape_design_data(product_url: str) -> dict:
                     'primary','supplementary','supplementary2','supplementary3',
                     'supplementary4','supplementary5','true','false','null',
                     'undefined','redbubble','cust','tshirts','shop','store',
-                    'default','standard','main','other','none','all','new'
+                    'default','standard','main','other','none','all','new',
+                    'bodycolor','defaulttext','hexcolor','displayorder',
+                    'configuration','printlocation','colorname','colorvalue',
+                    'imagetype','imagestyle','producttype','productline',
                 }
-                tag_matches = [t.strip() for t in tag_matches
-                               if len(t.strip()) > 2 and t.strip().lower() not in skip_words]
+                # فلتر camelCase (كلمات تقنية) وكلمات قصيرة جداً
+                def is_human_tag(t):
+                    t = t.strip()
+                    if len(t) < 3 or len(t) > 50:
+                        return False
+                    if t.lower() in skip_words:
+                        return False
+                    # رفض camelCase مثل bodyColor, hexColor
+                    if re.search(r'[a-z][A-Z]', t):
+                        return False
+                    # لازم يحتوي على حروف فقط ومسافات وشرطات
+                    if not re.match(r'^[a-zA-Z0-9\s\-]+$', t):
+                        return False
+                    return True
+                tag_matches = [t.strip() for t in tag_matches if is_human_tag(t)]
                 result['tags'] = list(dict.fromkeys(tag_matches))[:20]
 
                 prod_matches = re.findall(r'"productName"\s*:\s*"([^"]+)"', raw_json)
@@ -818,13 +838,33 @@ def post_to_blogger(design_hint: str, product_url: str, images: list,
     # Build HTML
     html = build_html(article, design_hint, product_url, hosted, user_tags, user_description)
 
-    # Labels
-    ai_labels  = article.get('labels', [])
-    all_labels = list(dict.fromkeys(user_tags + ai_labels))[:20]
+    # Labels — فلتر قبل الإرسال لـ Blogger
+    ai_labels = article.get('labels', [])
+    raw_labels = list(dict.fromkeys(user_tags + ai_labels))
+
+    def clean_label(t):
+        t = str(t).strip()
+        if not t or len(t) < 2 or len(t) > 200:
+            return None
+        if re.search(r'[a-z][A-Z]', t):
+            return None
+        tech = {'bodycolor','hexcolor','defaulttext','displayorder',
+                'configuration','printlocation','colorname','imagetype'}
+        if t.lower() in tech:
+            return None
+        return t
+
+    all_labels = [l for l in (clean_label(x) for x in raw_labels) if l][:20]
+    if not all_labels:
+        all_labels = [design_hint[:50]]
+
+    seo_title = article.get('seo_title', '').strip()
+    if not seo_title or len(seo_title) < 5:
+        seo_title = f'{design_hint} — Shop on Redbubble'
 
     # Publish
     payload = {
-        'title':   article.get('seo_title', f'{design_hint} — Shop on Redbubble'),
+        'title':   seo_title,
         'content': html,
         'labels':  all_labels,
     }
