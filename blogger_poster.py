@@ -1,15 +1,14 @@
 """
 📝 Blogger Poster — ينشر مقالة SEO احترافية على Blogger
-✅ أسلوب المقال مطابق لقالب الموقع (ألوان، تنسيق، HTML)
+✅ أسلوب بشري طبيعي — بعيد عن الأسلوب الآلي
 ✅ التاجات والوصف من designs.txt
-✅ أسماء كل المنتجات المتاحة في المقال
 ✅ صور Redbubble
-✅ 500+ كلمة مع SEO كامل
+✅ 600+ كلمة مع SEO كامل
 """
 import os
 import re
 import json
-import base64
+import random
 import requests
 from datetime import datetime
 
@@ -24,7 +23,6 @@ STORE_URL             = 'https://www.redbubble.com/people/cust-tshirts/shop'
 
 MIN_IMAGES = 12
 
-# كل المنتجات المتاحة على Redbubble
 ALL_PRODUCTS = [
     'Classic T-Shirt', 'Fitted T-Shirt', 'Relaxed T-Shirt',
     'Pullover Hoodie', 'Zip Hoodie', 'Pullover Sweatshirt',
@@ -40,6 +38,26 @@ ALL_PRODUCTS = [
     'Greeting Card', 'Spiral Notebook',
     'Pin', 'Magnet',
     'Face Mask', 'Bucket Hat',
+]
+
+# عبارات بشرية متنوعة للـ intro — تتغير كل مرة
+HUMAN_OPENERS = [
+    "Okay, I'll be honest —",
+    "So I was scrolling through Redbubble the other day and",
+    "Not gonna lie,",
+    "Here's the thing —",
+    "I wasn't expecting much, but then",
+    "Some designs just stop you mid-scroll, and",
+    "Let me tell you about",
+    "Real talk:",
+    "You know that feeling when you find something and immediately think 'I need this'?",
+    "I've seen a lot of Redbubble designs, but",
+]
+
+HUMAN_TRANSITIONS = [
+    "Anyway,", "But here's the thing —", "What I love most is",
+    "And honestly,", "The cool part?", "Here's what gets me —",
+    "What really stands out is", "I keep coming back to the fact that",
 ]
 
 
@@ -76,13 +94,6 @@ def get_access_token() -> str | None:
 # ══════════════════════════════════════════════════════════════
 
 def scrape_design_data(product_url: str) -> dict:
-    """
-    يسحب من صفحة Redbubble:
-    - عنوان التصميم الحقيقي
-    - الوصف
-    - التاجات
-    - أسماء المنتجات المتاحة فعلاً
-    """
     headers = {
         'User-Agent': (
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
@@ -93,42 +104,37 @@ def scrape_design_data(product_url: str) -> dict:
         'Accept-Language': 'en-US,en;q=0.9',
         'Referer': 'https://www.redbubble.com/',
     }
-    result = {
-        'title': '',
-        'description': '',
-        'tags': [],
-        'products': [],
-    }
+    result = {'title': '', 'description': '', 'tags': [], 'products': []}
     try:
-        # لو /shop/ap/ URL — حوله لـ /i/ أولاً عشان نجيب البيانات الصح
         scrape_url = product_url
         if '/shop/ap/' in product_url:
             import re as _re2
-            work_id_m = _re2.search(r'/shop/ap/(\d+)', product_url)
-            if work_id_m:
-                try:
-                    r0 = requests.get(product_url, headers=headers, timeout=20, allow_redirects=True)
-                    m0 = _re2.search(r'(https://www\.redbubble\.com/i/[^"\' ?#]+)', r0.text)
-                    if m0:
-                        scrape_url = m0.group(1)
-                        print(f"   🔄 Scraping from: {scrape_url[:70]}")
-                except Exception:
-                    pass
+            try:
+                r0 = requests.get(product_url, headers=headers, timeout=20, allow_redirects=True)
+                m0 = _re2.search(r'(https://www\.redbubble\.com/i/[^"\' ?#]+)', r0.text)
+                if m0:
+                    scrape_url = m0.group(1)
+                    print(f"   🔄 Scraping from: {scrape_url[:70]}")
+            except Exception:
+                pass
 
         resp = requests.get(scrape_url, headers=headers, timeout=25, allow_redirects=True)
         html = resp.text
 
-        # ── 1. العنوان ─────────────────────────────────────────
-        # og:title أو <title>
-        m = re.search(r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']', html)
+        # عنوان
+        m = re.search(r'<meta[^>]+property=["\'](og:title)["\'][^>]+content=["\'"]([^"\']+)["\']', html)
         if m:
             result['title'] = m.group(1).strip()
         else:
-            m2 = re.search(r'<title>([^<]+)</title>', html)
-            if m2:
-                result['title'] = m2.group(1).split('|')[0].strip()
+            m = re.search(r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']', html)
+            if m:
+                result['title'] = m.group(1).strip()
+            else:
+                m2 = re.search(r'<title>([^<]+)</title>', html)
+                if m2:
+                    result['title'] = m2.group(1).split('|')[0].strip()
 
-        # ── 2. الوصف ───────────────────────────────────────────
+        # وصف
         m = re.search(r'<meta[^>]+property=["\']og:description["\'][^>]+content=["\']([^"\']+)["\']', html)
         if m:
             result['description'] = m.group(1).strip()
@@ -137,24 +143,17 @@ def scrape_design_data(product_url: str) -> dict:
             if m2:
                 result['description'] = m2.group(1).strip()
 
-        # ── 3. التاجات والمنتجات من __NEXT_DATA__ ─────────────
-        nd = re.search(r'<script[^>]+id=["\'__NEXT_DATA__\"\'][^>]*>(.+?)</script>', html, re.DOTALL)
+        # تاجات ومنتجات من NEXT_DATA
+        nd = re.search(r'<script[^>]+id=["\']__NEXT_DATA__["\'][^>]*>(.+?)</script>', html, re.DOTALL)
         if nd:
             try:
-                data = json.loads(nd.group(1))
-                raw_json = json.dumps(data)
-
-                # Tags — ابحث عن "tags" array أو كلمات متكررة
-                # Redbubble بيحط التاجات في "tags":[{"name":"..."}, ...]
+                raw_json = json.dumps(json.loads(nd.group(1)))
                 tag_names = re.findall(r'"tags"\s*:\s*\[([^\]]+)\]', raw_json)
                 tag_matches = []
                 for block in tag_names:
-                    names = re.findall(r'"name"\s*:\s*"([^"]+)"', block)
-                    tag_matches.extend(names)
-                # fallback: ابحث عن "name" داخل tag objects
+                    tag_matches.extend(re.findall(r'"name"\s*:\s*"([^"]+)"', block))
                 if not tag_matches:
                     tag_matches = re.findall(r'"name"\s*:\s*"([a-z][a-z\s\-]{2,40})"', raw_json, re.IGNORECASE)
-                # فلترة الكلمات الغلط
                 skip_words = {
                     'primary','supplementary','supplementary2','supplementary3',
                     'supplementary4','supplementary5','true','false','null',
@@ -165,7 +164,6 @@ def scrape_design_data(product_url: str) -> dict:
                                if len(t.strip()) > 2 and t.strip().lower() not in skip_words]
                 result['tags'] = list(dict.fromkeys(tag_matches))[:20]
 
-                # Products — "productName" أو "name" مع كلمات منتجات
                 prod_matches = re.findall(r'"productName"\s*:\s*"([^"]+)"', raw_json)
                 if not prod_matches:
                     prod_matches = re.findall(
@@ -177,7 +175,6 @@ def scrape_design_data(product_url: str) -> dict:
             except Exception:
                 pass
 
-        # ── 4. المنتجات من HTML (backup) ───────────────────────
         if not result['products']:
             prod_html = re.findall(
                 r'(?:Classic T-Shirt|Fitted T-Shirt|Pullover Hoodie|Zip Hoodie|'
@@ -190,25 +187,21 @@ def scrape_design_data(product_url: str) -> dict:
             )
             result['products'] = list(dict.fromkeys(prod_html))[:30]
 
-        # ── 5. التاجات من meta keywords (backup) ───────────────
         if not result['tags']:
             m_kw = re.search(
-                r'<meta[^>]+name=["\'keywords\"\'][^>]+content=["\'([^\"\']+ )[\"\']', html)
+                r'<meta[^>]+name=["\']keywords["\'][^>]+content=["\']([^"\']+)["\']', html)
             if m_kw:
                 result['tags'] = [t.strip() for t in m_kw.group(1).split(',') if t.strip()][:20]
 
-        # ── تنظيف العنوان من HTML entities ────────────────────
         import html as _html
         result['title'] = _html.unescape(result['title']).strip('"').strip()
         result['description'] = _html.unescape(result['description'])
 
-        # ── تشيك على العناوين الغلط ────────────────────────────
         bad_titles = ['redbubble', 'logo', 'home', 'shop', 'store', '404', 'error']
         if any(b in result['title'].lower() for b in bad_titles):
-            print(f"   ⚠️ Bad title ('{result['title']}') — using design_hint")
             result['title'] = ''
 
-        print(f"   📌 Title   : {result['title'][:60] or '(none — will use design_hint)'}")
+        print(f"   📌 Title   : {result['title'][:60] or '(none)'}")
         print(f"   📝 Desc    : {result['description'][:80]}")
         print(f"   🏷️  Tags   : {result['tags'][:6]}")
         print(f"   📦 Products: {result['products'][:6]}")
@@ -267,7 +260,6 @@ def fetch_product_images(product_url: str, max_images: int = 20) -> list:
 
 
 def prepare_images(token: str, product_url: str, design_hint: str) -> list:
-    """يجيب الصور ويحاول يرفعها على Blogger — fallback للروابط الأصلية"""
     print(f"   📥 Fetching product images...")
     raw_urls = fetch_product_images(product_url, max_images=20)
     if not raw_urls:
@@ -337,15 +329,11 @@ def prepare_images(token: str, product_url: str, design_hint: str) -> list:
 
 
 # ══════════════════════════════════════════════════════════════
-# 🤖 AI — Generate SEO Article (Blogger HTML Style)
+# 🤖 AI — Generate Human-Sounding SEO Article
 # ══════════════════════════════════════════════════════════════
 
 def generate_article(design_hint: str, product_url: str,
                      user_tags: list, user_description: str) -> dict:
-    """
-    يولّد مقالة SEO — يسحب بيانات التصميم الحقيقية من Redbubble أولاً
-    """
-    # ── سحب بيانات التصميم من Redbubble ──────────────────────
     print("   🔍 Scraping design data from Redbubble...")
     scraped = scrape_design_data(product_url)
 
@@ -357,14 +345,23 @@ def generate_article(design_hint: str, product_url: str,
     all_tags     = list(dict.fromkeys(scraped_tags + (user_tags or [])))
     tags_str     = ', '.join(all_tags[:15]) if all_tags else design_hint
     products_str = ', '.join(available_prods[:25]) if available_prods else ', '.join(ALL_PRODUCTS[:20])
-    desc_section = f'''\nDESIGN DESCRIPTION:\n"""\n{real_description}\n"""'''  if real_description else ''
+    desc_section = f'\nDESIGN DESCRIPTION:\n"""\n{real_description}\n"""' if real_description else ''
 
-    prompt = f"""You are a professional SEO content writer for a Redbubble print-on-demand store called "Cust Tshirts".
+    # عشوائية في الأسلوب — كل مقالة تفرق
+    opener      = random.choice(HUMAN_OPENERS)
+    transition  = random.choice(HUMAN_TRANSITIONS)
+    writing_angle = random.choice([
+        "You're a fan of this specific niche who genuinely loves it and found this design.",
+        "You're a gift-buyer who's always looking for something thoughtful and unique.",
+        "You're someone who appreciates good design and hates boring generic merch.",
+        "You're a collector who buys Redbubble stuff regularly and knows what's worth it.",
+        "You're excited to share a hidden gem you just discovered.",
+    ])
 
-YOUR JOB: Write a detailed, engaging HOOK → BODY → CTA article about this specific design that drives real traffic and purchases.
+    prompt = f"""You're writing a blog post for a Redbubble print-on-demand store called "Cust Tshirts".
 
-DESIGN DATA (scraped directly from the product page):
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DESIGN DATA:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - Real Title     : "{real_title}"
 - Design Keyword : "{design_hint}"
 - Product URL    : {product_url}
@@ -373,53 +370,63 @@ DESIGN DATA (scraped directly from the product page):
 - Available Products: {products_str}
 {desc_section}
 
-ARTICLE STRUCTURE (Hook → Body → CTA):
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🔥 HOOK: Start with a bold, irresistible opening about THIS specific design.
-   Make the reader feel "this was made for me." Reference the real title and theme.
+YOUR PERSONA: {writing_angle}
+OPENING LINE TO USE: Start the intro with "{opener}" — then continue naturally from there.
+USE THIS TRANSITION SOMEWHERE: "{transition}"
 
-💎 BODY: Deep dive — the design story, who it speaks to, ALL available products by name,
-   gift ideas, quality, worldwide shipping. 700+ words total. Specific to this design.
+TONE & STYLE RULES (CRITICAL):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Write like a real person talking to a friend, NOT like a marketing robot
+- Use contractions freely: "you'll", "it's", "don't", "that's", "I've"
+- Vary sentence length — mix short punchy sentences with longer detailed ones
+- Include occasional casual phrases: "honestly", "to be fair", "look", "here's the thing"
+- It's okay to start sentences with "And", "But", "So" — that's natural writing
+- Avoid AI giveaways: never use "delve", "showcase", "testament", "elevate", "realm", "tapestry", "vibrant", "dive into", "in conclusion", "in summary", "furthermore", "moreover", "it's worth noting"
+- No bullet points that sound like a feature list — write in flowing paragraphs
+- The conclusion must feel like a real recommendation, not a sales pitch closing
+- Include ONE small imperfection or honest admission (e.g. "it might not be for everyone, but...")
+- SEO keywords must feel woven in naturally, not forced
 
-⚡ CTA: Every section must end with a reason to click. The conclusion must create
-   urgency and excitement: "Don't let this one slip away — grab yours now."
+STRUCTURE:
+━━━━━━━━━━
+1. intro: Start with "{opener}" — hook them in 3-4 sentences. Personal, conversational, specific to "{real_title}".
+2. about_body: 5-6 sentences explaining what the design IS and why it's cool. Use the description data. Feel real.
+3. who_for_list: 5 specific types of people who'd genuinely love this — be specific to the design theme, not generic.
+4. products_body: 3-4 sentences mentioning actual product names naturally — like you're telling someone what to buy.
+5. gift_body: 4-5 sentences on gifting — specific occasions that match THIS design's theme.
+6. quality_body: 3 sentences — honest, not corporate. Redbubble quality, ships worldwide, satisfaction guarantee.
+7. conclusion: 3-4 sentences. Real recommendation. One line of gentle urgency. End with warmth not hype.
 
-REQUIREMENTS:
-- Mention specific product names from: {products_str}
-- NO keyword stuffing, NO fake prices, NO discount codes
-- Write like recommending to a friend who would LOVE this design
-- Each section must feel specific to "{real_title}" — NOT generic
-
-OUTPUT: Respond ONLY with valid JSON — no markdown, no extra text:
+OUTPUT: Respond ONLY with valid JSON. No markdown, no backticks, no explanation:
 {{
-  "seo_title": "SEO title 55-65 chars with \"{design_hint}\" keyword",
-  "meta_description": "Meta 150-160 chars — mention design + strong CTA",
-  "h1": "H1 — exciting, keyword-rich, different from title",
+  "seo_title": "SEO title 55-65 chars — keyword '{design_hint}' included naturally",
+  "meta_description": "150-160 chars — sounds like a human wrote it, includes main keyword + CTA",
+  "h1": "Engaging H1 — different from title, feels like a real article headline",
   "labels": ["tag1","tag2","tag3","tag4","tag5","tag6","tag7","tag8"],
-  "intro": "3-4 sentences. 🔥 HOOK: Bold opening line referencing exactly what \"{real_title}\" is. Why it stops you in your tracks. Main keyword in first sentence. Make them want to read more.",
-  "about_h2": "H2 — About the {real_title} Design",
-  "about_body": "5-6 sentences. What makes THIS design special — its theme, humor/emotion/aesthetic, the story behind it, who it speaks to. Use details from tags and description. Vivid and specific.",
-  "who_for_h2": "H2 — Who Will Love This Design?",
-  "who_for_intro": "1-2 sentences — connect the design theme to its perfect audience.",
-  "who_for_list": ["Specific fan type 1 based on the design theme", "Fan type 2", "Fan type 3", "Fan type 4", "Fan type 5"],
-  "products_h2": "H2 — Available on Multiple Products",
-  "products_body": "3-4 sentences. Mention actual product names: {products_str[:100]}. Explain why this design looks great on each. Premium quality Redbubble printing on everything.",
-  "products_table_caption": "Short exciting caption for the product table",
-  "gift_h2": "H2 — The Perfect Gift for [Audience of This Design]",
-  "gift_body": "4-5 sentences. Why THIS design makes an unforgettable gift. Who to gift it to. Occasions matching the design theme. Unique, thoughtful, and ships worldwide.",
-  "gift_list": ["Gift occasion tied to design theme 1", "Occasion 2", "Occasion 3", "Occasion 4"],
-  "quality_h2": "H2 — Premium Quality, Worldwide Shipping",
-  "quality_body": "3-4 sentences about Redbubble print quality, satisfaction guarantee, fast worldwide shipping, supporting independent artists.",
-  "quality_highlights": ["Premium print on every product", "Ships worldwide in days", "100% satisfaction guarantee", "Supports independent artists"],
-  "how_order_h2": "H2 — How To Order",
-  "how_order_steps": ["Click the product link above", "Choose your product, color and size", "Add to cart and checkout securely", "Receive worldwide shipping to your door"],
-  "faq_q1": "Question specifically about \"{real_title}\"",
-  "faq_a1": "2-3 sentence answer referencing the design theme",
-  "faq_q2": "Question about shipping or product range",
-  "faq_a2": "2-3 sentence answer",
+  "intro": "3-4 sentences starting with '{opener}' — casual, specific, makes you want to read more",
+  "about_h2": "H2 for the about section — specific to '{real_title}'",
+  "about_body": "5-6 sentences about what makes THIS design special. Vivid and specific, not generic.",
+  "who_for_h2": "H2 — Who's gonna love this?",
+  "who_for_intro": "1-2 casual sentences connecting design theme to its audience.",
+  "who_for_list": ["Specific person type 1 based on design", "Type 2", "Type 3", "Type 4", "Type 5"],
+  "products_h2": "H2 — What can you get it on?",
+  "products_body": "3-4 sentences. Mention actual products naturally. No robotic listing.",
+  "products_table_caption": "Short fun caption for the product table",
+  "gift_h2": "H2 — gifting section title specific to design audience",
+  "gift_body": "4-5 sentences. Real gift advice, specific occasions, why THIS design works as a gift.",
+  "gift_list": ["Specific gift occasion for this design", "Occasion 2", "Occasion 3", "Occasion 4"],
+  "quality_h2": "H2 — quality/shipping section",
+  "quality_body": "3 sentences — honest and conversational about Redbubble quality + worldwide shipping.",
+  "quality_highlights": ["Premium print quality", "Worldwide shipping", "Satisfaction guarantee", "Supports independent artists"],
+  "how_order_h2": "H2 — how to order",
+  "how_order_steps": ["Step 1 — natural language", "Step 2", "Step 3", "Step 4"],
+  "faq_q1": "Natural question someone would actually ask about '{real_title}'",
+  "faq_a1": "Conversational 2-3 sentence answer",
+  "faq_q2": "Question about products or shipping",
+  "faq_a2": "Conversational 2-3 sentence answer",
   "faq_q3": "Question about gifting this design",
-  "faq_a3": "2-3 sentence answer connecting design to gift giving",
-  "conclusion": "3-4 sentences. ⚡ CTA: Summarize what makes \"{real_title}\" worth having. Create real urgency — \"This design won\'t stay under the radar for long.\" Direct call to action to visit the link and buy now. End with excitement and energy."
+  "faq_a3": "Conversational 2-3 sentence answer",
+  "conclusion": "3-4 sentences. Genuine recommendation. One line of soft urgency. Warm and human ending."
 }}"""
 
     try:
@@ -431,12 +438,22 @@ OUTPUT: Respond ONLY with valid JSON — no markdown, no extra text:
             },
             json={
                 'model':       GROQ_MODEL,
-                'temperature': 0.75,
+                'temperature': 0.92,   # أعلى = أكثر إبداعاً وتنوعاً
                 'max_tokens':  3500,
                 'messages': [
                     {
                         'role':    'system',
-                        'content': 'You are an expert SEO content writer for a Redbubble print-on-demand store. Write specific, vivid, engaging articles using the REAL design data provided. Every article must feel unique to that specific design. Structure: Hook → Body → CTA. Respond ONLY with valid JSON. No markdown. No explanation.'
+                        'content': (
+                            'You are a real human blogger who genuinely loves creative merch. '
+                            'You write naturally, conversationally, and specifically. '
+                            'You never sound like a marketing email or an AI assistant. '
+                            'You use contractions, vary your sentence length, and write like '
+                            'you\'re texting a friend who asked for a recommendation. '
+                            'NEVER use words like: delve, showcase, testament, elevate, realm, '
+                            'tapestry, vibrant, navigate, foster, leverage, paramount, '
+                            'in conclusion, in summary, furthermore, moreover, it\'s worth noting. '
+                            'Respond ONLY with valid JSON. No markdown. No backticks. No preamble.'
+                        )
                     },
                     {'role': 'user', 'content': prompt}
                 ],
@@ -445,60 +462,69 @@ OUTPUT: Respond ONLY with valid JSON — no markdown, no extra text:
         )
         raw = resp.json()['choices'][0]['message']['content'].strip()
         raw = raw.replace('```json', '').replace('```', '').strip()
+        # إزالة أي نص قبل أو بعد الـ JSON
+        start = raw.find('{')
+        end   = raw.rfind('}') + 1
+        if start >= 0 and end > start:
+            raw = raw[start:end]
         return json.loads(raw)
     except Exception as e:
         print(f"   ⚠️ AI failed: {e} — using fallback")
         return _fallback(design_hint, product_url, user_tags)
 
+
 def _fallback(design_hint: str, url: str, tags: list) -> dict:
     d = design_hint
+    opener = random.choice(HUMAN_OPENERS)
     return {
-        'seo_title': f'{d} — Unique Redbubble Design',
-        'meta_description': f'Discover the {d} design on Redbubble. Available on t-shirts, stickers, mugs and more. Ships worldwide!',
-        'h1': f'{d} — Shop This Unique Design Now',
+        'seo_title': f'{d} — Unique Redbubble Design Worth Checking Out',
+        'meta_description': f'Spotted this {d} design on Redbubble and honestly had to share it. Available on t-shirts, mugs, stickers and way more. Ships worldwide!',
+        'h1': f'{d} — This One\'s Worth a Look',
         'labels': tags[:8] if tags else ['redbubble', 'design', 'gift', 'print on demand'],
-        'intro': f'Looking for a unique {d} design? This amazing design is available on dozens of products — from t-shirts and hoodies to stickers, mugs, phone cases and more. Whether you\'re treating yourself or searching for the perfect gift, you\'ve found exactly what you need.',
-        'about_h2': f'About The {d} Design',
-        'about_body': f'The {d} design is a one-of-a-kind piece of art that instantly stands out. It captures a unique aesthetic that resonates deeply with people who love to express their personality through creative design. Every detail has been thoughtfully crafted, from the colors to the concept, making it both eye-catching and memorable.',
-        'who_for_h2': 'Who Is This Perfect For?',
-        'who_for_intro': 'This design speaks to a very specific group of people — those who appreciate unique, creative expression.',
-        'who_for_list': ['Anyone who loves unique graphic designs', 'People who want to express their personality', 'Gift buyers looking for something truly original', 'Cat lovers and animal enthusiasts', 'Anyone who appreciates humor and creativity'],
-        'products_h2': 'Available On Many Products',
-        'products_body': f'The {d} design is printed on a huge range of high-quality products. Choose from classic and fitted t-shirts, pullover hoodies, stickers, mugs, phone cases, tote bags, art prints, posters, throw pillows, leggings, and much more. All products are made on demand with premium printing.',
-        'products_table_caption': 'Available products for this design',
-        'gift_h2': 'Makes a Perfect Gift',
-        'gift_body': f'Struggling to find a gift that\'s truly unique? The {d} design makes an unforgettable present for any occasion. Anyone who receives this will immediately know how thoughtful and original the choice was.',
-        'gift_list': ['Birthday gifts', 'Christmas presents', 'Graduation gifts', 'Anniversary surprises'],
-        'quality_h2': 'Quality You Can Trust',
-        'quality_body': 'Redbubble is one of the world\'s leading print-on-demand marketplaces, trusted by millions of customers globally. Every purchase comes backed by a satisfaction guarantee.',
-        'quality_highlights': ['Premium print quality on every product', 'Ships worldwide with tracking', 'Satisfaction guarantee from Redbubble', 'Supporting independent artists'],
-        'how_order_h2': 'How To Order',
-        'how_order_steps': ['Click the Shop button below to visit Redbubble', 'Choose your preferred product type and size', 'Add to cart and checkout securely', 'Your order ships fresh and direct to your door'],
+        'intro': f'{opener} this {d} design kind of stopped me mid-scroll. It\'s one of those things where you immediately think "someone put real thought into this." Whether you\'re grabbing it for yourself or looking for a gift that actually means something, you\'re in the right place.',
+        'about_h2': f'So What\'s the {d} Design About?',
+        'about_body': f'The {d} design is one of those pieces that just works. It\'s got a clear concept, good execution, and the kind of aesthetic that feels specific rather than generic. You can tell it wasn\'t just thrown together — there\'s a real idea behind it, and it shows in every detail from the colors to the composition.',
+        'who_for_h2': 'Who\'s Gonna Love This?',
+        'who_for_intro': 'This isn\'t a design for everyone — and that\'s kind of the point. It speaks to a specific crowd.',
+        'who_for_list': [
+            'Anyone tired of boring, mass-produced merch',
+            'People who love expressing their personality through what they wear',
+            'Gift buyers looking for something that actually feels thoughtful',
+            'Fans of unique graphic design and independent artists',
+            'Anyone who\'d appreciate humor or creativity in everyday items'
+        ],
+        'products_h2': 'What Can You Actually Get It On?',
+        'products_body': f'The {d} design is available on a solid range of products — classic t-shirts, fitted tees, pullover hoodies, stickers, mugs, phone cases, tote bags, art prints, posters, throw pillows, and more. Basically if you want it on something, Redbubble probably has it. The printing quality holds up well across all of them.',
+        'products_table_caption': 'Products this design is available on',
+        'gift_h2': 'Looking for a Gift That Actually Lands?',
+        'gift_body': f'The {d} design makes a surprisingly good gift — mainly because it doesn\'t feel like something you grabbed last minute. It\'s specific, it\'s creative, and it ships worldwide so distance isn\'t an issue. Redbubble wraps everything nicely too, which helps if you\'re sending it directly.',
+        'gift_list': ['Birthdays', 'Christmas or holiday gifts', 'Graduation presents', '"Just because" surprises'],
+        'quality_h2': 'Is the Quality Actually Good?',
+        'quality_body': 'Redbubble\'s print quality is genuinely solid — colors stay vivid after washing, and the products themselves feel well-made. Everything ships worldwide with tracking, and there\'s a satisfaction guarantee if something goes wrong. To be fair, shipping times can vary by location, but it\'s never been a dealbreaker.',
+        'quality_highlights': ['Premium print quality on every product', 'Ships worldwide with tracking', '100% satisfaction guarantee', 'Supports independent artists'],
+        'how_order_h2': 'How to Grab One',
+        'how_order_steps': [
+            'Click the link below to head to the Redbubble product page',
+            'Pick your product type, color, and size',
+            'Add it to your cart and check out securely',
+            'It ships straight to your door — worldwide'
+        ],
         'faq_q1': f'What products is the {d} design available on?',
-        'faq_a1': f'The {d} design is available on t-shirts, hoodies, stickers, mugs, phone cases, tote bags, art prints, pillows, leggings, and many more products. Visit the Redbubble page to see all available options.',
+        'faq_a1': f'Quite a few, actually. You\'ll find the {d} design on t-shirts, hoodies, stickers, mugs, phone cases, tote bags, art prints, pillows, leggings, and more. Check the Redbubble page for the full list.',
         'faq_q2': 'Does Redbubble ship internationally?',
-        'faq_a2': 'Yes, Redbubble ships worldwide. Shipping times and costs vary by location and shipping method. Most orders arrive within 1-2 weeks.',
-        'faq_q3': f'Is the {d} design a good gift?',
-        'faq_a3': f'Absolutely! The {d} design makes an excellent gift for anyone who appreciates unique, creative products. It\'s available on practical everyday items they\'ll use and enjoy.',
-        'conclusion': f'The {d} design is more than just a product — it\'s a statement of personality and creativity. Whether you\'re buying for yourself or as a gift, this design delivers on every level. Don\'t wait — click the button below and grab yours today!',
+        'faq_a2': 'Yes — Redbubble ships worldwide. Delivery times vary depending on where you are and which shipping option you choose, but most orders arrive within 1–2 weeks.',
+        'faq_q3': f'Is this a good gift?',
+        'faq_a3': f'Honestly, yes. The {d} design works well as a gift because it feels personal and specific — not like something you grabbed off a shelf. It\'s available on practical everyday items too, so it\'ll actually get used.',
+        'conclusion': f'If the {d} design caught your eye, trust that instinct. It\'s the kind of thing that\'s harder to find than it should be — specific, well-made, and genuinely different from what you\'d find in a regular store. It might not be for everyone, but if it resonates with you, that\'s usually a sign. Go take a look.',
     }
 
 
 # ══════════════════════════════════════════════════════════════
-# 🏗️ BUILD HTML (Blogger template style — red #cc0000)
+# 🏗️ BUILD HTML
 # ══════════════════════════════════════════════════════════════
 
 def build_html(data: dict, design_hint: str, product_url: str,
                images: list, user_tags: list, user_description: str) -> str:
-    """
-    يبني HTML المقالة بنفس أسلوب القالب:
-    - ألوان #cc0000 و #073763
-    - highlighted spans
-    - note boxes
-    - comparison table
-    - ordered/unordered lists
-    - CTA buttons
-    """
 
     def img(url: str, alt: str) -> str:
         return (
@@ -540,12 +566,9 @@ def build_html(data: dict, design_hint: str, product_url: str,
             f'"{text}"</div>'
         )
 
-    # Products table (first 6 columns × 2 rows from ALL_PRODUCTS)
+    # Products table
     table_rows = ''
-    row1 = ALL_PRODUCTS[:6]
-    row2 = ALL_PRODUCTS[6:12]
-    row3 = ALL_PRODUCTS[12:18]
-    for row in [row1, row2, row3]:
+    for row in [ALL_PRODUCTS[:6], ALL_PRODUCTS[6:12], ALL_PRODUCTS[12:18]]:
         cells = ''.join(f'<td style="padding:8px;border:1px solid #ddd;">{p}</td>' for p in row)
         table_rows += f'<tr>{cells}</tr>'
 
@@ -561,14 +584,14 @@ def build_html(data: dict, design_hint: str, product_url: str,
   <tbody>{table_rows}</tbody>
 </table>'''
 
-    # Who is it for — unordered list with highlights
+    # Who is it for
     who_list_items = ''
     colors = ['#d9ead3', '#cfe2f3', '#fff2cc', '#f4cccc', '#ead1dc']
     for i, item in enumerate(data.get('who_for_list', [])):
         bg = colors[i % len(colors)]
         who_list_items += f'<li style="margin-bottom:8px;">{highlight(item, bg, "#073763")}</li>'
 
-    # Gift occasions — ordered list
+    # Gift list
     gift_list_items = ''
     for item in data.get('gift_list', []):
         gift_list_items += (
@@ -582,7 +605,7 @@ def build_html(data: dict, design_hint: str, product_url: str,
     for item in data.get('quality_highlights', []):
         quality_items += f'<li style="margin-bottom:6px;">✅ {item}</li>'
 
-    # How to order — numbered
+    # How to order
     order_steps = ''
     for i, step in enumerate(data.get('how_order_steps', []), 1):
         order_steps += (
@@ -591,7 +614,7 @@ def build_html(data: dict, design_hint: str, product_url: str,
             f'</li>'
         )
 
-    # Description section from designs.txt
+    # Description from designs.txt
     desc_section = ''
     if user_description:
         desc_section = (
@@ -602,7 +625,7 @@ def build_html(data: dict, design_hint: str, product_url: str,
             f'</div>'
         )
 
-    # Tags section from designs.txt
+    # Tags
     tags_section = ''
     if user_tags:
         tag_spans = ' '.join(
@@ -618,7 +641,7 @@ def build_html(data: dict, design_hint: str, product_url: str,
             f'</div>'
         )
 
-    # Image grid (images 7-12)
+    # Image grid (7–12)
     grid_cells = ''
     for i in range(6, min(12, len(images))):
         grid_cells += (
@@ -633,7 +656,7 @@ def build_html(data: dict, design_hint: str, product_url: str,
         grid_html = (
             f'<div style="margin:20px 0;">'
             f'<p style="text-align:center;color:#666;font-size:.85em;margin-bottom:10px;">'
-            f'🛍️ Available on many products — tap to explore all options</p>'
+            f'🛍️ Available on many products — tap to explore</p>'
             f'<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">'
             f'{grid_cells}</div></div>'
         )
@@ -641,7 +664,7 @@ def build_html(data: dict, design_hint: str, product_url: str,
     # FAQ
     faq = (
         f'<div style="background:#f8f9fa;border-radius:8px;padding:20px;margin:28px 0;">'
-        f'<h2 style="color:#cc0000;font-size:1.3em;margin-top:0;">❓ Frequently Asked Questions</h2>'
+        f'<h2 style="color:#cc0000;font-size:1.3em;margin-top:0;">❓ Quick Questions</h2>'
         f'<h3 style="color:#073763;font-size:1em;margin-bottom:5px;">Q: {data.get("faq_q1","")}</h3>'
         f'<p style="color:#555;margin:0 0 16px;">{data.get("faq_a1","")}</p>'
         f'<h3 style="color:#073763;font-size:1em;margin-bottom:5px;">Q: {data.get("faq_q2","")}</h3>'
@@ -678,7 +701,7 @@ def build_html(data: dict, design_hint: str, product_url: str,
 
 {get(2)}
 
-{note_box("This design is available on over 30 different product types — from everyday wear to home decor gifts.", "🎨")}
+{note_box("This design is available on over 30 different product types — from everyday wear to home decor.", "🎨")}
 
 <!-- ── WHO IS IT FOR ── -->
 <h2 style="color:#cc0000;font-size:x-large;">{data.get("who_for_h2","Who Is This Perfect For?")}</h2>
@@ -708,7 +731,7 @@ def build_html(data: dict, design_hint: str, product_url: str,
 {gift_list_items}
 </ol>
 
-{quote_box(f"The perfect gift isn't expensive — it's thoughtful. The {design_hint} design is exactly that.")}
+{quote_box(f"The best gifts aren't the most expensive — they're the ones that feel like they were picked specifically for you. The {design_hint} design is exactly that kind of gift.")}
 
 {get(6) if len(images) > 6 else ''}
 
@@ -755,11 +778,6 @@ def post_to_blogger(design_hint: str, product_url: str, images: list,
                     user_tags: list = None,
                     user_description: str = '',
                     collection: str = '') -> dict:
-    """
-    ينشر مقالة SEO احترافية على Blogger
-    - user_tags: التاجات من designs.txt
-    - user_description: الوصف من designs.txt (بعد | الثاني)
-    """
     if not BLOGGER_BLOG_ID:
         print("⚠️ BLOGGER_BLOG_ID not set — skipping")
         return {'success': False, 'error': 'BLOGGER_BLOG_ID missing'}
@@ -769,17 +787,16 @@ def post_to_blogger(design_hint: str, product_url: str, images: list,
     if user_tags is None:
         user_tags = []
 
-    # Auto-generate tags if none provided
     if not user_tags:
         print("   🏷️  No tags in designs.txt — auto-generating...")
         user_tags = _auto_tags(design_hint, product_url)
 
-    # 1. Auth
+    # Auth
     token = get_access_token()
     if not token:
         return {'success': False, 'error': 'Auth failed'}
 
-    # 2. Images — استخدم الصور اللي اتبعتت من main.py مباشرة
+    # Images
     if images and len(images) >= 3:
         hosted = list(images)
         print(f"   🖼️  Using {len(hosted)} images passed from main")
@@ -794,18 +811,18 @@ def post_to_blogger(design_hint: str, product_url: str, images: list,
                     break
     print(f"   🖼️  Total images: {len(hosted)}")
 
-    # 3. Generate article
-    print("   🤖 Generating SEO article...")
+    # Generate article
+    print("   🤖 Generating human-style article...")
     article = generate_article(design_hint, product_url, user_tags, user_description)
 
-    # 4. Build HTML
+    # Build HTML
     html = build_html(article, design_hint, product_url, hosted, user_tags, user_description)
 
-    # 5. Merge labels
+    # Labels
     ai_labels  = article.get('labels', [])
     all_labels = list(dict.fromkeys(user_tags + ai_labels))[:20]
 
-    # 6. Publish
+    # Publish
     payload = {
         'title':   article.get('seo_title', f'{design_hint} — Shop on Redbubble'),
         'content': html,
@@ -843,7 +860,6 @@ def post_to_blogger(design_hint: str, product_url: str, images: list,
 
 
 def _auto_tags(design_hint: str, product_url: str) -> list:
-    """يولّد تاجات تلقائية من اسم التصميم لو مفيش في designs.txt"""
     if not GROQ_API_KEY:
         words = re.sub(r'[^a-zA-Z0-9 ]', ' ', design_hint).lower().split()
         stop = {'by', 'for', 'the', 'and', 'or', 'a', 'an', 'in', 'on', 'of', 'to', 'with'}
@@ -853,16 +869,20 @@ def _auto_tags(design_hint: str, product_url: str) -> list:
             'https://api.groq.com/openai/v1/chat/completions',
             headers={'Authorization': f'Bearer {GROQ_API_KEY}', 'Content-Type': 'application/json'},
             json={
-                'model': GROQ_MODEL, 'temperature': 0.5, 'max_tokens': 150,
+                'model': GROQ_MODEL, 'temperature': 0.6, 'max_tokens': 150,
                 'messages': [
-                    {'role': 'system', 'content': 'Respond ONLY with a valid JSON array of strings.'},
-                    {'role': 'user', 'content': f'Generate 8 SEO tags for this Redbubble design: "{design_hint}". Short phrases only. JSON array.'}
+                    {'role': 'system', 'content': 'Respond ONLY with a valid JSON array of strings. No markdown.'},
+                    {'role': 'user', 'content': f'Generate 8 SEO tags for this Redbubble design: "{design_hint}". Short natural phrases only. JSON array.'}
                 ],
             },
             timeout=20
         )
         raw = resp.json()['choices'][0]['message']['content'].strip()
         raw = raw.replace('```json', '').replace('```', '').strip()
+        start = raw.find('[')
+        end   = raw.rfind(']') + 1
+        if start >= 0 and end > start:
+            raw = raw[start:end]
         tags = json.loads(raw)
         if isinstance(tags, list):
             print(f"   🏷️  Auto-generated {len(tags)} tags")
