@@ -1,6 +1,6 @@
 {
   "last_posted_url": "https://www.redbubble.com/shop/ap/177701426",
-  "last_check": "2026-05-22T16:00:40.951660",
+  "last_check": "2026-05-22T17:19:03.082594",
   "total_posts": 77,
   "designs": {
     "474f95f0d6cc9c": {
@@ -1121,6 +1121,14 @@
       "first_seen": "2026-05-22T07:29:38.226668",
       "post_count": 1,
       "last_posted": "2026-05-22T07:29:38.226675",
+      "is_manual": false
+    },
+    "3c63b505f2434d": {
+      "url": "https://www.redbubble.com/shop/ap/180950204",
+      "title": "funny cat shirt",
+      "first_seen": "2026-05-22T17:19:03.082496",
+      "post_count": 0,
+      "last_posted": null,
       "is_manual": false
     }
   }
