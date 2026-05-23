@@ -891,10 +891,20 @@ def post_to_blogger(design_hint: str, product_url: str, images: list,
 
     seo_title = article.get('seo_title', '').strip()
     if not seo_title or len(seo_title) < 5:
-        seo_title = f'{design_hint} — Shop on Redbubble'
+        seo_title = f'{design_hint} - Shop on Redbubble'
 
-    # Publish
+    # تنظيف العنوان من أي رموز ممكن تسبب مشاكل
+    import unicodedata
+    seo_title = unicodedata.normalize('NFKC', seo_title)
+    seo_title = seo_title.replace('—', '-').replace('–', '-').replace('’', "'")
+    seo_title = seo_title[:150]  # Blogger limit
+
+    # تنظيف الـ labels
+    all_labels = [l[:200] for l in all_labels if l and l.strip()][:20]
+
+    # Publish — بدون أي fields إضافية
     payload = {
+        'kind':    'blogger#post',
         'title':   seo_title,
         'content': html,
         'labels':  all_labels,
@@ -921,9 +931,19 @@ def post_to_blogger(design_hint: str, product_url: str, images: list,
             print(f"   🖼️  Images : {len(hosted)}")
             return {'success': True, 'post_id': data['id'], 'url': post_url, 'title': payload['title']}
         else:
-            err = data.get('error', {}).get('message', str(data))
-            print(f"   ❌ Blogger error: {err}")
-            return {'success': False, 'error': err}
+            err_obj = data.get('error', {})
+            err_msg = err_obj.get('message', str(data))
+            err_code = err_obj.get('code', resp.status_code)
+            err_details = err_obj.get('errors', [])
+            print(f"   ❌ Blogger error [{err_code}]: {err_msg}")
+            if err_details:
+                for e in err_details:
+                    print(f"      → {e.get('reason','?')}: {e.get('message','?')}")
+            # Debug: اطبع أول 500 حرف من الـ payload
+            print(f"   🔍 Title len : {len(payload['title'])}")
+            print(f"   🔍 Labels    : {payload['labels']}")
+            print(f"   🔍 Content len: {len(payload['content'])}")
+            return {'success': False, 'error': err_msg}
 
     except Exception as e:
         print(f"   ❌ Publish failed: {e}")
