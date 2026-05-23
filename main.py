@@ -1,20 +1,20 @@
 """
-🚀 MAIN - Redbubble Auto Poster (Smart Edition)
-- يختار التصميم الجاي تلقائياً من الستور
-- يفضّل التصاميم الجديدة
-- مش بيكرر نفس التصميم ورا بعضه
-- تنوع في نوع البوست في كل مرة
-- يدعم الإضافة اليدوية من manual_products.json
+🚀 MAIN - Redbubble Auto Poster
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+الصبح  (06:00–16:00 مصر) → Album جديد + يحفظ التصميم
+المساء (20:00 مصر)       → Reels لنفس تصميم الصبح
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 import os
 import sys
+import json
 import time
-import random
+from datetime import datetime
 
 from config import (
     validate_config,
-    REDBUBBLE_URL,          # اختياري - override يدوي
-    REDBUBBLE_STORE_URL,    # رابط الستور للسكان الأوتوماتيك
+    REDBUBBLE_URL,
+    REDBUBBLE_STORE_URL,
     POST_TYPE,
     MAX_IMAGES,
     LANGUAGE,
@@ -31,65 +31,113 @@ from ai_generator import (
     generate_ai_caption, generate_design_hint, generate_video_script
 )
 from facebook_publisher import (
-    post_album, post_single_photo, post_text_only,
-    post_link, post_video, post_reels
+    post_album, post_reels
 )
 from instagram_poster import post_to_instagram
 from pinterest_poster import post_to_pinterest
 from blogger_poster import post_to_blogger
-from video_creator import create_slideshow_video, create_reels_video
+from video_creator import create_reels_video
 from voice_generator import generate_voice, get_random_voice_style
-from templates import get_text_only_post, get_link_post
 from history_manager import record_post, get_stats, is_duplicate
 
-
-# ══════════════════════════════════════════════════════════════
-# 🎲 SMART POST TYPE ROTATION (تنوع في المحتوى)
-# ══════════════════════════════════════════════════════════════
-
-# دوّرة album/reels فقط — أفضل للإنجيجمنت
-POST_TYPE_CYCLE = [
-    'album',   # ألبوم صور
-    'reels',   # ريلز — إنجيجمنت عالي
-    'album',   # ألبوم
-    'reels',   # ريلز
-    'album',   # ألبوم
-    'reels',   # ريلز
-    'album',   # ألبوم
-    'reels',   # ريلز
-]
+# ──────────────────────────────────────────────────────────────
+# 📁 ملف يحفظ تصميم الصبح عشان الريلز يلاقيه المساء
+# ──────────────────────────────────────────────────────────────
+TODAY_DESIGN_FILE = 'today_design.json'
 
 
-def get_post_type_for_this_run() -> str:
+def save_today_design(url: str, design_hint: str, images: list,
+                      tags: list, description: str, collection: str):
+    data = {
+        'url':         url,
+        'design_hint': design_hint,
+        'images':      images[:10],
+        'tags':        tags,
+        'description': description,
+        'collection':  collection,
+        'saved_at':    datetime.now().isoformat(),
+    }
+    try:
+        with open(TODAY_DESIGN_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        print(f"   💾 Today's design saved → {TODAY_DESIGN_FILE}")
+    except Exception as e:
+        print(f"   ⚠️ Could not save today design: {e}")
+
+
+def load_today_design() -> dict | None:
+    if not os.path.exists(TODAY_DESIGN_FILE):
+        print(f"   ⚠️ {TODAY_DESIGN_FILE} not found — no morning album to reuse")
+        return None
+    try:
+        with open(TODAY_DESIGN_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        # تأكد إنه من نفس اليوم
+        saved_at = datetime.fromisoformat(data.get('saved_at', '2000-01-01'))
+        if saved_at.date() != datetime.now().date():
+            print(f"   ⚠️ Today's design file is from {saved_at.date()} — too old")
+            return None
+        print(f"   ✅ Loaded today's design: {data.get('design_hint','?')[:50]}")
+        return data
+    except Exception as e:
+        print(f"   ⚠️ Could not load today design: {e}")
+        return None
+
+
+# ──────────────────────────────────────────────────────────────
+# ⏰ منطق الوقت — صبح أم مساء؟
+# ──────────────────────────────────────────────────────────────
+
+def get_egypt_hour() -> int:
+    """الساعة الحالية بتوقيت مصر (UTC+2 شتاء / UTC+3 صيف)"""
+    # GitHub Actions بتشتغل بـ UTC
+    utc_hour = datetime.utcnow().hour
+    # مصر UTC+2 (نستخدم +2 كـ safe default)
+    egypt_hour = (utc_hour + 2) % 24
+    return egypt_hour
+
+
+def decide_post_mode() -> str:
     """
-    اختيار نوع البوست الجاي بذكاء.
-    لو POST_TYPE=auto → يدور على الدوّرة
-    لو تحديد يدوي → يستخدمه
+    يقرر نوع البوست بناءً على الوقت:
+    - لو POST_TYPE محدد يدوياً → استخدمه
+    - لو auto:
+        06:00–17:59 مصر → album (صبح ونص النهار)
+        18:00–23:59 مصر → reels (مساء)
+        00:00–05:59 مصر → album (فجر — نادر)
     """
+    # override يدوي
     if POST_TYPE and POST_TYPE.lower() not in ('auto', ''):
+        print(f"   📌 Manual post type: {POST_TYPE.upper()}")
         return POST_TYPE.lower()
 
-    # استخدام index من environment variable
-    # يتحدث كل run في الـ workflow
-    idx = int(os.getenv('POST_ROTATION_INDEX', '0'))
-    chosen = POST_TYPE_CYCLE[idx % len(POST_TYPE_CYCLE)]
-    print(f"🎲 Auto post type (index {idx}): {chosen.upper()}")
-    return chosen
+    egypt_hour = get_egypt_hour()
+    print(f"   🕐 Egypt time: {egypt_hour:02d}:xx")
+
+    if 6 <= egypt_hour <= 17:
+        mode = 'album'
+    elif 18 <= egypt_hour <= 23:
+        mode = 'reels'
+    else:
+        mode = 'album'  # فجر → album
+
+    print(f"   🎯 Auto mode: {mode.upper()} (Egypt hour={egypt_hour})")
+    return mode
 
 
-# ══════════════════════════════════════════════════════════════
-# 📤 POST FUNCTIONS
-# ══════════════════════════════════════════════════════════════
+# ──────────────────────────────────────────────────────────────
+# 📤 ALBUM POST (الصبح — تصميم جديد)
+# ──────────────────────────────────────────────────────────────
 
-def run_album_post(images, url, design_hint, tags=None, collection='', description=''):
+def run_album_post(images, url, design_hint,
+                   tags=None, collection='', description=''):
     caption = generate_ai_caption('album', url, design_hint)
 
-    # Facebook: 30 صورة كاملة
     fb_images = images[:10]
     print(f"\n📸 Facebook Album: {len(fb_images)} photos")
     result = post_album(fb_images, caption)
 
-    # Instagram: حد أقصى 10 صور
+    # Instagram
     try:
         post_to_instagram(image_urls=images[:10], caption=caption, post_type='album')
     except Exception as e:
@@ -101,295 +149,228 @@ def run_album_post(images, url, design_hint, tags=None, collection='', descripti
     except Exception as e:
         print(f"⚠️ Pinterest failed: {e}")
 
-    # Blogger SEO Article
+    # Blogger
     try:
         post_to_blogger(design_hint, url, fb_images, tags or [], description, collection)
     except Exception as e:
         print(f"⚠️ Blogger failed: {e}")
 
-    return result
-
-
-def run_single_post(images, url, design_hint):
-    caption = generate_ai_caption('single', url, design_hint)
-    result = post_single_photo(images[0], caption)
-
-    try:
-        post_to_instagram(image_urls=images, caption=caption, post_type='single')
-    except Exception as e:
-        print(f"⚠️ Instagram single failed: {e}")
-
-    try:
-        post_to_pinterest(images[:1], caption, url, design_hint)
-    except Exception as e:
-        print(f"⚠️ Pinterest failed: {e}")
+    # ✅ احفظ التصميم عشان الريلز المساء
+    save_today_design(url, design_hint, images, tags or [], description, collection)
 
     return result
 
 
-def run_link_post(url):
-    message = get_link_post(url)
-    return post_link(message, url)
+# ──────────────────────────────────────────────────────────────
+# 🎬 REELS POST (المساء — نفس تصميم الصبح)
+# ──────────────────────────────────────────────────────────────
 
+def run_reels_post(images, url, design_hint,
+                   tags=None, collection='', description=''):
+    print("\n🎬 Creating 15-second Reels...")
 
-def run_text_post(url):
-    message = get_text_only_post()
-    return post_text_only(message)
-
-
-def run_video_post(images, url, design_hint):
-    print("\n🎬 Generating video with voice...")
+    # سكريبت قصير 15 ثانية
     script = generate_video_script(design_hint, url)
-    print(f"📜 Script: {script[:120]}...")
+    print(f"📜 Script: {script[:100]}...")
 
     voice_style = get_random_voice_style()
-    voice_path = generate_voice(script, 'video_voice.mp3', voice_style)
+    voice_path  = generate_voice(script, 'reels_voice.mp3', voice_style)
     if not voice_path:
-        print("⚠️ Voice failed, video will be silent")
+        print("⚠️ Voice failed — video will be silent")
 
-    video_path = create_slideshow_video(
-        images[:10],
-        voice_audio_path=voice_path,
-        output_name='slideshow.mp4'
-    )
-    if not video_path:
-        print("⚠️ Video creation failed, falling back to album post")
-        return run_album_post(images, url, design_hint)
-
-    caption = generate_ai_caption('video', url, design_hint)
-    result = post_video(video_path, caption)
-
-    try:
-        post_to_instagram(caption=caption, post_type='video', video_path=video_path)
-    except Exception as e:
-        print(f"⚠️ Instagram video failed: {e}")
-
-    return result
-
-
-def run_reels_post(images, url, design_hint, tags=None, collection='', description=''):
-    print("\n🎬 Generating Reels with voice...")
-    script = generate_video_script(design_hint, url)
-
-    voice_style = get_random_voice_style()
-    voice_path = generate_voice(script, 'reels_voice.mp3', voice_style)
-
+    # فيديو 15 ثانية
     video_path = create_reels_video(
         images[:8],
         voice_audio_path=voice_path,
-        output_name='reels.mp4'
+        output_name='reels.mp4',
+        duration=15,          # 15 ثانية بالظبط
     )
+
     if not video_path:
-        print("⚠️ Reels creation failed, falling back to album post")
-        return run_album_post(images, url, design_hint, tags)
+        print("⚠️ Reels creation failed — falling back to album")
+        return run_album_post(images, url, design_hint, tags, collection, description)
 
     caption = generate_ai_caption('reels', url, design_hint)
+
+    # Facebook Reels
     result = post_reels(video_path, caption)
 
+    # Instagram Reels
     try:
         post_to_instagram(caption=caption, post_type='reels', video_path=video_path)
     except Exception as e:
         print(f"⚠️ Instagram reels failed: {e}")
 
-    # Blogger SEO Article
-    try:
-        post_to_blogger(design_hint, url, images, tags or [], description, collection)
-    except Exception as e:
-        print(f"⚠️ Blogger failed: {e}")
-
     return result
 
 
-# ══════════════════════════════════════════════════════════════
-# 🔍 GET TARGET URL (الاختيار الذكي للتصميم)
-# ══════════════════════════════════════════════════════════════
+# ──────────────────────────────────────────────────────────────
+# 🔍 GET TARGET URL
+# ──────────────────────────────────────────────────────────────
 
 def get_target_url() -> dict:
-    """
-    اختيار التصميم اللي هيتنشر:
-    1. لو في REDBUBBLE_URL يدوي → استخدمه
-    2. لو في REDBUBBLE_STORE_URL → سكان الستور واختر الأذكى
-    3. لو ما فيش → خطأ
-
-    بيرجع: {'url': str, 'title': str, 'is_new': bool}
-    """
-    # ── Manual override ──────────────────────────────────────
     if REDBUBBLE_URL and REDBUBBLE_URL.strip():
-        print(f"\n📌 Manual URL override: {REDBUBBLE_URL[:70]}")
-        return {
-            'url': REDBUBBLE_URL.strip(),
-            'title': 'Manual',
-            'is_new': False,
-        }
+        print(f"\n📌 Manual URL: {REDBUBBLE_URL[:70]}")
+        return {'url': REDBUBBLE_URL.strip(), 'title': 'Manual', 'is_new': False}
 
-    # ── Auto selection ───────────────────────────────────────
     if not REDBUBBLE_STORE_URL:
-        print("❌ Neither REDBUBBLE_URL nor REDBUBBLE_STORE_URL is set!")
-        print("   Add REDBUBBLE_STORE_URL to your GitHub Secrets")
+        print("❌ REDBUBBLE_STORE_URL not set!")
         sys.exit(1)
 
-    print(f"\n🤖 Auto-selecting next design from store...")
+    print("\n🤖 Auto-selecting next design...")
     product = get_next_product_to_post(REDBUBBLE_STORE_URL)
-
     if not product:
-        print("❌ No product found to post")
+        print("❌ No product found")
         sys.exit(1)
 
     return product
 
 
-# ══════════════════════════════════════════════════════════════
-# 🖼️ EXTRACT IMAGES WITH FALLBACK (مع Fallback لتصميم تاني)
-# ══════════════════════════════════════════════════════════════
+# ──────────────────────────────────────────────────────────────
+# 🖼️ EXTRACT IMAGES WITH FALLBACK
+# ──────────────────────────────────────────────────────────────
 
 def get_images_with_fallback(target: dict) -> tuple:
-    """
-    استخراج الصور من URL، لو ما فيش يجرب التصميم الجاي.
-    بيرجع: (images, url, title, is_new)
-    """
-    url = target['url']
+    url   = target['url']
     title = target.get('title', '')
     is_new = target.get('is_new', False)
 
-    print(f"\n🔍 Extracting images from:")
-    print(f"   {url[:80]}")
-
+    print(f"\n🔍 Extracting images from:\n   {url[:80]}")
     images = extract_all_images(url)
 
-    # لو ما لقيناش صور كافية → جرب التاني
     if len(images) < 2 and not REDBUBBLE_URL:
-        print(f"⚠️ Not enough images ({len(images)}) — trying next design...")
+        print(f"⚠️ Only {len(images)} images — trying next design...")
         next_product = get_next_product_to_post(REDBUBBLE_STORE_URL)
         if next_product and next_product['url'] != url:
-            url = next_product['url']
-            title = next_product.get('title', '')
+            url    = next_product['url']
+            title  = next_product.get('title', '')
             is_new = next_product.get('is_new', False)
             images = extract_all_images(url)
 
     if len(images) < 2:
-        print(f"❌ Not enough images ({len(images)}) even after fallback")
+        print(f"❌ Not enough images ({len(images)})")
         sys.exit(1)
 
     return images, url, title, is_new
 
 
-# ══════════════════════════════════════════════════════════════
+# ──────────────────────────────────────────────────────────────
 # 🚀 MAIN
-# ══════════════════════════════════════════════════════════════
+# ──────────────────────────────────────────────────────────────
 
 def main():
     validate_config()
-
     print(get_stats())
     print(get_store_stats())
 
-    # ── اختيار التصميم ──────────────────────────────────────
-    target = get_target_url()
+    # ── تحديد الوضع: album أم reels ──────────────────────────
+    mode = decide_post_mode()
 
-    # ✅ التحقق من التكرار قبل أي حاجة تانية
-    active_post_type_check = get_post_type_for_this_run()
-    pre_url = target.get('url', '')
-    if pre_url and is_duplicate(pre_url, active_post_type_check, cooldown_hours=24):
-        print(f"\n⏸️  Design already posted within 24h — skipping this run")
-        print(f"   URL: {pre_url[:70]}")
-        print("=" * 60)
-        sys.exit(0)
+    # ══════════════════════════════════════════════════════════
+    # 🌅 ALBUM MODE — صبح: تصميم جديد
+    # ══════════════════════════════════════════════════════════
+    if mode == 'album':
+        target = get_target_url()
+        pre_url = target.get('url', '')
 
-    # ── استخراج الصور ───────────────────────────────────────
-    images, target_url, design_title, is_new = get_images_with_fallback(target)
-    sorted_images = smart_sort_images(images, MAX_IMAGES)
+        # duplicate check — 12 ساعة (مش 24 عشان الريلز المساء مش يتأثر)
+        if pre_url and is_duplicate(pre_url, 'album', cooldown_hours=12):
+            print(f"\n⏸️  Already posted as album in last 12h — skipping")
+            sys.exit(0)
 
-    # ── تحليل التصميم بالـ AI ────────────────────────────────
-    # استخدم الـ /i/ URL الحقيقي لاستخراج اسم التصميم بدقة
-    resolved_url = getattr(extract_all_images, 'resolved_url', target_url)
-    design_hint = generate_design_hint(resolved_url, ' '.join(images[:5]))
+        images, target_url, design_title, is_new = get_images_with_fallback(target)
+        sorted_images = smart_sort_images(images, MAX_IMAGES)
+        resolved_url  = getattr(extract_all_images, 'resolved_url', target_url)
+        design_hint   = generate_design_hint(resolved_url, ' '.join(images[:5]))
 
-    # ── اختيار نوع البوست ───────────────────────────────────
-    active_post_type = get_post_type_for_this_run()
+        print(f"\n{'='*60}")
+        print(f"🌅 MODE       : ALBUM (Morning)")
+        print(f"🎨 Design     : {design_hint}")
+        print(f"🔗 URL        : {target_url[:70]}")
+        print(f"🆕 New Design : {'YES ✨' if is_new else 'No (repost)'}")
+        print(f"📸 Images     : {len(sorted_images)}")
+        print(f"🌍 Language   : {LANGUAGE}")
+        print('='*60)
 
-    print(f"\n{'=' * 60}")
-    print(f"🎨 Design     : {design_hint}")
-    print(f"🔗 URL        : {target_url[:70]}")
-    print(f"🎯 Post Type  : {active_post_type.upper()}")
-    print(f"🆕 New Design : {'YES ✨' if is_new else 'No (repost)'}")
-    print(f"📸 Images     : {len(sorted_images)}")
-    print(f"🌍 Language   : {LANGUAGE}")
-    print(f"🎨 Style      : {STYLE}")
-    print('=' * 60)
+        result = run_album_post(
+            sorted_images, target_url, design_hint,
+            target.get('tags', []),
+            target.get('collection', ''),
+            target.get('description', ''),
+        )
 
-    # ── التوجيه لنوع البوست ─────────────────────────────────
-    result = None
+    # ══════════════════════════════════════════════════════════
+    # 🌙 REELS MODE — مساء: نفس تصميم الصبح
+    # ══════════════════════════════════════════════════════════
+    elif mode == 'reels':
+        today = load_today_design()
 
-    if active_post_type in ('album', 'carousel'):
-        result = run_album_post(sorted_images, target_url, design_hint, target.get('tags', []), target.get('collection', ''), target.get('description', ''))
+        if today:
+            # ✅ استخدم تصميم الصبح
+            target_url  = today['url']
+            design_hint = today['design_hint']
+            images      = today['images']
+            tags        = today.get('tags', [])
+            description = today.get('description', '')
+            collection  = today.get('collection', '')
+        else:
+            # fallback: لو مفيش تصميم صبح → اختار جديد
+            print("   ℹ️  No morning design found — selecting new design for reels")
+            target = get_target_url()
+            images, target_url, _, _ = get_images_with_fallback(target)
+            images      = smart_sort_images(images, MAX_IMAGES)
+            resolved_url = getattr(extract_all_images, 'resolved_url', target_url)
+            design_hint = generate_design_hint(resolved_url, ' '.join(images[:5]))
+            tags        = target.get('tags', [])
+            description = target.get('description', '')
+            collection  = target.get('collection', '')
 
-    elif active_post_type == 'single':
-        result = run_single_post(sorted_images, target_url, design_hint)
+        # duplicate check للريلز — 20 ساعة
+        if is_duplicate(target_url, 'reels', cooldown_hours=20):
+            print(f"\n⏸️  Already posted as reels today — skipping")
+            sys.exit(0)
 
-    elif active_post_type == 'link':
-        result = run_link_post(target_url)
+        print(f"\n{'='*60}")
+        print(f"🌙 MODE       : REELS (Evening)")
+        print(f"🎨 Design     : {design_hint}")
+        print(f"🔗 URL        : {target_url[:70]}")
+        print(f"📸 Images     : {len(images)}")
+        print(f"🌍 Language   : {LANGUAGE}")
+        print('='*60)
 
-    elif active_post_type == 'text':
-        result = run_text_post(target_url)
+        result = run_reels_post(
+            images, target_url, design_hint,
+            tags, collection, description,
+        )
 
-    elif active_post_type == 'video':
-        result = run_video_post(sorted_images, target_url, design_hint)
-
-    elif active_post_type == 'reels':
-        result = run_reels_post(sorted_images, target_url, design_hint, target.get('tags', []), target.get('collection', ''), target.get('description', ''))
-
-    elif active_post_type == 'all':
-        # كل الأنواع
-        results = {}
-        for ptype, fn in [
-            ('album', lambda: run_album_post(sorted_images, target_url, design_hint, target.get('tags', []), target.get('collection', ''), target.get('description', ''))),
-            ('single', lambda: run_single_post(sorted_images, target_url, design_hint)),
-            ('link', lambda: run_link_post(target_url)),
-        ]:
-            print(f"\n▶ Running {ptype}...")
-            results[ptype] = fn()
-            time.sleep(10)
-        result = results
     else:
-        result = run_album_post(sorted_images, target_url, design_hint, target.get('tags', []))
+        print(f"❌ Unknown mode: {mode}")
+        sys.exit(1)
 
-    # ── تسجيل النتيجة ───────────────────────────────────────
-    print(f"\n{'=' * 60}")
+    # ── تسجيل النتيجة ────────────────────────────────────────
+    print(f"\n{'='*60}")
 
     if isinstance(result, dict):
         if 'id' in result:
             post_id = result['id']
             print(f"🎉 SUCCESS! Post ID: {post_id}")
-            # تسجيل في الهيستوريين
-            record_post(target_url, active_post_type, post_id, design_hint)
-            record_design_posted(target_url, design_title or design_hint)
-
-        elif active_post_type == 'all':
-            success = sum(1 for r in result.values() if isinstance(r, dict) and 'id' in r)
-            print(f"🎉 ALL DONE! {success}/{len(result)} succeeded")
-            for ptype, res in result.items():
-                if isinstance(res, dict) and 'id' in res:
-                    print(f"   ✅ {ptype}: {res['id']}")
-                    record_post(target_url, ptype, res['id'], design_hint)
-                else:
-                    err = res.get('error', '?') if isinstance(res, dict) else '?'
-                    print(f"   ❌ {ptype}: {err}")
-            record_design_posted(target_url, design_title or design_hint)
-
+            record_post(target_url, mode, post_id, design_hint)
+            if mode == 'album':
+                record_design_posted(target_url, design_hint)
         elif 'error' in result:
             print(f"❌ Error: {result['error']}")
 
-    # ── عرض التصاميم الجاية ──────────────────────────────────
+    # ── التصاميم الجاية ──────────────────────────────────────
     upcoming = list_upcoming_designs(3)
     if upcoming:
         print(f"\n🔮 Next designs in queue:")
         for i, d in enumerate(upcoming, 1):
-            title = d.get('title', 'Unknown')[:50]
-            count = d.get('post_count', 0)
+            title  = d.get('title', 'Unknown')[:50]
+            count  = d.get('post_count', 0)
             status = '🆕' if count == 0 else f'🔄 x{count}'
             print(f"   {i}. {status} {title}")
 
-    print('=' * 60)
+    print('='*60)
 
 
 if __name__ == "__main__":
