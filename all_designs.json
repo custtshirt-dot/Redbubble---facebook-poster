@@ -1,10 +1,10 @@
 {
-  "last_updated": "2026-05-23T06:02:31.533575",
+  "last_updated": "2026-05-23T06:45:14.875535",
   "store_url": "https://www.redbubble.com/people/cust-tshirts/shop",
   "total": 70,
-  "posted_count": 17,
-  "never_posted_count": 53,
-  "total_posts_made": 79,
+  "posted_count": 18,
+  "never_posted_count": 52,
+  "total_posts_made": 80,
   "designs": [
     {
       "title": "whimsical art",
@@ -97,6 +97,15 @@
       "status": "✅ Posted"
     },
     {
+      "title": "car guy gift",
+      "url": "https://www.redbubble.com/shop/ap/177196596",
+      "work_id": "177196596",
+      "post_count": 1,
+      "last_posted": "2026-05-23T06:04:20.181756",
+      "first_seen": "2026-05-21T04:13:05.901845",
+      "status": "✅ Posted"
+    },
+    {
       "title": "cat mom gift",
       "url": "https://www.redbubble.com/shop/ap/177196475",
       "work_id": "177196475",
@@ -158,15 +167,6 @@
       "last_posted": "2026-05-20T20:44:49.365119",
       "first_seen": "2026-05-20T20:44:49.365112",
       "status": "✅ Posted"
-    },
-    {
-      "title": "car guy gift",
-      "url": "https://www.redbubble.com/shop/ap/177196596",
-      "work_id": "177196596",
-      "post_count": 0,
-      "last_posted": null,
-      "first_seen": "2026-05-21T04:13:05.901845",
-      "status": "🆕 Never Posted"
     },
     {
       "title": "cat mom gift",
