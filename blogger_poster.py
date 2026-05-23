@@ -900,7 +900,18 @@ def post_to_blogger(design_hint: str, product_url: str, images: list,
     seo_title = seo_title[:150]  # Blogger limit
 
     # تنظيف الـ labels
-    all_labels = [l[:200] for l in all_labels if l and l.strip()][:20]
+    # Blogger: max 10 labels، وكل label مش يتعدى 200 حرف، والكل مش يتعدى 200 حرف إجمالي
+    all_labels_clean = [l.strip()[:200] for l in all_labels if l and l.strip()][:10]
+    # تأكد إن المجموع الكلي مش أكتر من 200 حرف
+    final_labels = []
+    total_chars = 0
+    for label in all_labels_clean:
+        if total_chars + len(label) + 2 <= 200:  # +2 للفاصلة والمسافة
+            final_labels.append(label)
+            total_chars += len(label) + 2
+        else:
+            break
+    all_labels = final_labels
 
     # Publish — بدون أي fields إضافية
     payload = {
