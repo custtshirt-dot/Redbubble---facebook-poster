@@ -1,59 +1,42 @@
-name: 🚀 Auto Post Every 3 Hours — Album + Reels
-
-# ══════════════════════════════════════════════════════════════
-# ⏰ جدول البوستات — كل 3 ساعات (مصر = UTC+2)
-#
-#   UTC 00 → مصر 02:00 ص  → Album
-#   UTC 03 → مصر 05:00 ص  → Album
-#   UTC 06 → مصر 08:00 ص  → Album
-#   UTC 09 → مصر 11:00 ص  → Album
-#   UTC 12 → مصر 02:00 م  → Album
-#   UTC 15 → مصر 05:00 م  → Album
-#   UTC 18 → مصر 08:00 م  → Reels ← مرة واحدة في اليوم
-#   UTC 21 → مصر 11:00 م  → Album
-# ══════════════════════════════════════════════════════════════
+name: Auto Post Every 3 Hours
 
 on:
   schedule:
-    - cron: '0 0  * * *'   # مصر 02:00 ص → Album
-    - cron: '0 3  * * *'   # مصر 05:00 ص → Album
-    - cron: '0 6  * * *'   # مصر 08:00 ص → Album
-    - cron: '0 9  * * *'   # مصر 11:00 ص → Album
-    - cron: '0 12 * * *'   # مصر 02:00 م → Album
-    - cron: '0 15 * * *'   # مصر 05:00 م → Album
-    - cron: '0 18 * * *'   # مصر 08:00 م → Reels ✅
-    - cron: '0 21 * * *'   # مصر 11:00 م → Album
+    - cron: '0 0  * * *'
+    - cron: '0 3  * * *'
+    - cron: '0 6  * * *'
+    - cron: '0 9  * * *'
+    - cron: '0 12 * * *'
+    - cron: '0 15 * * *'
+    - cron: '0 18 * * *'
+    - cron: '0 21 * * *'
 
   workflow_dispatch:
     inputs:
       redbubble_url:
-        description: '🔗 رابط منتج يدوي (فاضي = أوتوماتيك)'
+        description: 'رابط منتج يدوي (فاضي = اوتوماتيك)'
         required: false
         default: ''
-
       post_type:
-        description: '📝 نوع البوست'
+        description: 'نوع البوست'
         required: false
         default: 'auto'
         type: choice
         options: [auto, album, reels]
-
       language:
-        description: '🌍 لغة الكابشن'
+        description: 'لغة الكابشن'
         required: false
         default: 'english'
         type: choice
         options: [english, arabic, both]
-
       style:
-        description: '🎨 أسلوب الكابشن'
+        description: 'اسلوب الكابشن'
         required: false
         default: 'mixed'
         type: choice
         options: [mixed, sales_blast, funny, emotional, hard_sell]
-
       force_post:
-        description: '⚡ نشر حتى لو في cooldown'
+        description: 'نشر حتى لو في cooldown'
         required: false
         default: 'false'
         type: choice
@@ -64,179 +47,150 @@ permissions:
 
 jobs:
 
-  # ════════════════════════════════════════════════════════════
-  # 🔄 JOB 0 — Keep-alive (يمنع GitHub من إيقاف الـ schedule)
-  # ════════════════════════════════════════════════════════════
+  # ══════════════════════════════════════════════════
+  # JOB 1 — Keep-alive (مستقل تماماً — مش بيأثر على البوست)
+  # ══════════════════════════════════════════════════
   keep-alive:
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule'
     steps:
-      - name: 📥 Checkout
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 🔄 Keep workflow active
+      - name: Push keep-alive commit
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name  "github-actions[bot]"
-          echo "$(date -u)" > .github/keepalive
+          mkdir -p .github
+          echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC')" > .github/keepalive
           git add .github/keepalive
-          git diff --staged --quiet || (git commit -m "🔄 Keep-alive [skip ci]" && git push)
+          git diff --staged --quiet && echo "no change" && exit 0
+          git commit -m "keepalive $(date -u '+%Y-%m-%d %H:%M') [skip ci]"
+          git push || true
 
-  # ════════════════════════════════════════════════════════════
-  # 📋 JOB 1 — تحديث الكتالوج
-  # ════════════════════════════════════════════════════════════
+  # ══════════════════════════════════════════════════
+  # JOB 2 — تحديث الكتالوج (مستقل)
+  # ══════════════════════════════════════════════════
   update-catalog:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [keep-alive]
-    if: always()
 
     steps:
-      - name: 📥 Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 1
 
-      - name: 🐍 Setup Python 3.12
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: 📦 Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
-      - name: 📋 Update all_designs.json
+      - name: Update catalog
         env:
           REDBUBBLE_STORE_URL: ${{ secrets.REDBUBBLE_STORE_URL }}
           FB_PAGE_ID:          ${{ secrets.FB_PAGE_ID }}
           FB_TOKEN:            ${{ secrets.FB_TOKEN }}
         run: |
           echo "UTC  : $(date -u '+%Y-%m-%d %H:%M')"
-          echo "Egypt: $(TZ='Africa/Cairo' date '+%Y-%m-%d %H:%M %Z')"
+          echo "Egypt: $(TZ='Africa/Cairo' date '+%Y-%m-%d %H:%M')"
           python update_catalog.py
 
-      - name: 💾 Save catalog
+      - name: Save catalog to repo
         if: always()
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name  "github-actions[bot]"
           git add -f all_designs.json 2>/dev/null || true
-          if git diff --staged --quiet; then
-            echo "ℹ️ No catalog changes"
-          else
-            git commit -m "📋 Catalog update [skip ci]"
-            git pull --rebase -X ours origin main && git push && echo "✅ Saved!"
-          fi
+          git diff --staged --quiet && echo "no changes" && exit 0
+          git commit -m "catalog update [skip ci]"
+          git pull --rebase -X ours origin main && git push && echo "saved"
 
-  # ════════════════════════════════════════════════════════════
-  # 🚀 JOB 2 — البوست الذكي
-  # ════════════════════════════════════════════════════════════
+  # ══════════════════════════════════════════════════
+  # JOB 3 — البوست الرئيسي (يشتغل بعد الكتالوج)
+  # ══════════════════════════════════════════════════
   smart-post:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: update-catalog
-    if: always()
 
     steps:
-      - name: 🕐 Detect post mode
+      - name: Detect post mode
         id: mode
         run: |
           UTC_HOUR=$(date -u +%-H)
-
-          # UTC 18 = مصر 8م = Reels
-          # كل الساعات التانية = Album
           if [ "$UTC_HOUR" -eq 18 ]; then
-            AUTO_MODE="reels"
+            MODE="reels"
           else
-            AUTO_MODE="album"
+            MODE="album"
           fi
+          echo "mode=$MODE" >> $GITHUB_OUTPUT
+          echo "UTC=$UTC_HOUR | Egypt=$(( (UTC_HOUR+2)%24 )):00 | Mode=$MODE"
 
-          echo "utc_hour=$UTC_HOUR"     >> $GITHUB_OUTPUT
-          echo "auto_mode=$AUTO_MODE"   >> $GITHUB_OUTPUT
-          echo "🕐 UTC=$UTC_HOUR | Mode=$AUTO_MODE"
-
-      - name: ⏳ Wait 3 seconds
-        run: sleep 3
-
-      - name: 📥 Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 1
 
-      - name: 📦 Restore today_design cache
+      - name: Restore today_design cache
         uses: actions/cache@v4
         with:
           path: today_design.json
           key: today-design-${{ github.run_id }}
-          restore-keys: |
-            today-design-
+          restore-keys: today-design-
 
-      - name: 📦 Restore post history cache
+      - name: Restore post history cache
         uses: actions/cache@v4
         with:
           path: post_history.json
           key: post-history-${{ github.run_id }}
-          restore-keys: |
-            post-history-
+          restore-keys: post-history-
 
-      - name: 🐍 Setup Python 3.12
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: 📦 Cache pip
+      - name: Cache pip
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-          restore-keys: ${{ runner.os }}-pip-
+          key: pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: pip-
 
-      - name: 📦 Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
-      - name: ⚙️ Set variables
+      - name: Set post variables
         id: vars
         run: |
           POST_T="${{ github.event.inputs.post_type }}"
+          [ -z "$POST_T" ] || [ "$POST_T" = "auto" ] && POST_T="${{ steps.mode.outputs.mode }}"
+
           LANG="${{ github.event.inputs.language }}"
+          [ -z "$LANG" ] && LANG="english"
+
           STY="${{ github.event.inputs.style }}"
+          [ -z "$STY" ] && STY="mixed"
+
           FORCE="${{ github.event.inputs.force_post }}"
+          [ -z "$FORCE" ] && FORCE="false"
+
           RB_URL="${{ github.event.inputs.redbubble_url }}"
 
-          [ -z "$POST_T" ] && POST_T="auto"
-          [ -z "$LANG"   ] && LANG="english"
-          [ -z "$STY"    ] && STY="mixed"
-          [ -z "$FORCE"  ] && FORCE="false"
+          echo "post_type=$POST_T" >> $GITHUB_OUTPUT
+          echo "language=$LANG"    >> $GITHUB_OUTPUT
+          echo "style=$STY"        >> $GITHUB_OUTPUT
+          echo "force=$FORCE"      >> $GITHUB_OUTPUT
+          echo "rb_url=$RB_URL"    >> $GITHUB_OUTPUT
 
-          # لو auto → استخدم المود المحسوب
-          if [ "$POST_T" = "auto" ]; then
-            FINAL_TYPE="${{ steps.mode.outputs.auto_mode }}"
-          else
-            FINAL_TYPE="$POST_T"
-          fi
+          echo "Mode=$POST_T | Lang=$LANG | Style=$STY | Force=$FORCE"
 
-          echo "rb_url=$RB_URL"         >> $GITHUB_OUTPUT
-          echo "post_type=$FINAL_TYPE"  >> $GITHUB_OUTPUT
-          echo "language=$LANG"         >> $GITHUB_OUTPUT
-          echo "style=$STY"             >> $GITHUB_OUTPUT
-          echo "force=$FORCE"           >> $GITHUB_OUTPUT
-
-          echo "--- Settings ---"
-          echo "Trigger  : ${{ github.event_name }}"
-          echo "UTC      : $(date -u '+%H:%M')"
-          echo "Egypt    : $(TZ='Africa/Cairo' date '+%H:%M %Z')"
-          echo "Mode     : $FINAL_TYPE"
-          echo "URL      : ${RB_URL:-'(auto)'}"
-
-      - name: 🚀 Run Smart Poster
+      - name: Run poster
         env:
           FB_PAGE_ID:            ${{ secrets.FB_PAGE_ID }}
           FB_TOKEN:              ${{ secrets.FB_TOKEN }}
@@ -259,36 +213,16 @@ jobs:
           IGNORE_DUPLICATES:     ${{ steps.vars.outputs.force }}
         run: python main.py
 
-      - name: 💾 Save history & today_design
+      - name: Save history
         if: always()
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name  "github-actions[bot]"
-          git add -f designs_history.json 2>/dev/null || true
-          git add -f post_history.json    2>/dev/null || true
-          git add -f today_design.json    2>/dev/null || true
-          git add manual_products.json    2>/dev/null || true
-          if git diff --staged --quiet; then
-            echo "ℹ️ No changes"
-          else
-            git commit -m "📊 Update history [skip ci]"
-            for i in 1 2 3; do
-              git pull --rebase -X ours origin main && git push && echo "✅ Saved!" && break
-              echo "⚠️ Retry $i..."
-              git rebase --abort 2>/dev/null || true
-              git checkout --ours designs_history.json post_history.json today_design.json 2>/dev/null || true
-              git add -f designs_history.json post_history.json today_design.json 2>/dev/null || true
-              sleep 3
-            done
-          fi
-
-      - name: ✅ Summary
-        if: success()
-        run: |
-          echo "🎉 Done! Mode: ${{ steps.vars.outputs.post_type }}"
-          echo "🕐 UTC  : $(date -u '+%Y-%m-%d %H:%M')"
-          echo "🕐 Egypt: $(TZ='Africa/Cairo' date '+%Y-%m-%d %H:%M %Z')"
-
-      - name: ❌ Failure
-        if: failure()
-        run: echo "⚠️ Failed! Check secrets and logs above."
+          git add -f designs_history.json post_history.json today_design.json 2>/dev/null || true
+          git diff --staged --quiet && echo "no changes" && exit 0
+          git commit -m "history update [skip ci]"
+          for i in 1 2 3; do
+            git pull --rebase -X ours origin main && git push && echo "saved!" && break
+            sleep 3
+            git rebase --abort 2>/dev/null || true
+          done
