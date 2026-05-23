@@ -166,19 +166,29 @@ def scrape_design_data(product_url: str) -> dict:
                     'bodycolor','defaulttext','hexcolor','displayorder',
                     'configuration','printlocation','colorname','colorvalue',
                     'imagetype','imagestyle','producttype','productline',
+                    'size','sizes','color','colors','type','style','format',
+                    'cust-tshirts','redbubble-next','next','id','key','value',
+                    'label','group','category','item','tag','data','info',
                 }
-                # فلتر camelCase (كلمات تقنية) وكلمات قصيرة جداً
                 def is_human_tag(t):
                     t = t.strip()
                     if len(t) < 3 or len(t) > 50:
                         return False
-                    if t.lower() in skip_words:
+                    # رفض بـ lower وبدون شرطات
+                    clean = t.lower().replace('-','').replace(' ','')
+                    if clean in skip_words or t.lower() in skip_words:
                         return False
-                    # رفض camelCase مثل bodyColor, hexColor
+                    # رفض camelCase
                     if re.search(r'[a-z][A-Z]', t):
                         return False
-                    # لازم يحتوي على حروف فقط ومسافات وشرطات
-                    if not re.match(r'^[a-zA-Z0-9\s\-]+$', t):
+                    # رفض أرقام فقط
+                    if re.match(r'^[0-9\-]+$', t):
+                        return False
+                    # رفض كلمات Redbubble الداخلية
+                    if any(x in t.lower() for x in ['redbubble','cust-','tshirt','-next']):
+                        return False
+                    # لازم يحتوي حروف حقيقية
+                    if not re.search(r'[a-zA-Z]{2,}', t):
                         return False
                     return True
                 tag_matches = [t.strip() for t in tag_matches if is_human_tag(t)]
@@ -846,15 +856,36 @@ def post_to_blogger(design_hint: str, product_url: str, images: list,
         t = str(t).strip()
         if not t or len(t) < 2 or len(t) > 200:
             return None
+        # رفض camelCase تقنية
         if re.search(r'[a-z][A-Z]', t):
             return None
-        tech = {'bodycolor','hexcolor','defaulttext','displayorder',
-                'configuration','printlocation','colorname','imagetype'}
+        # رفض كلمات تقنية أو كلمات Redbubble الداخلية
+        tech = {
+            'bodycolor','hexcolor','defaulttext','displayorder',
+            'configuration','printlocation','colorname','imagetype',
+            'size','sizes','color','colors','type','style','format',
+            'cust-tshirts','custtshirts','redbubble-next','redbubble',
+            'next','true','false','null','undefined','none','default',
+            'primary','secondary','supplementary','standard','main',
+        }
+        if t.lower().replace(' ','').replace('-','') in tech:
+            return None
         if t.lower() in tech:
+            return None
+        # رفض أي حاجة فيها - أو _ مع كلمات تقنية
+        if '-' in t and any(x in t.lower() for x in ['redbubble','cust','tshirt','next']):
+            return None
+        # لازم يكون فيه حروف حقيقية (مش أرقام أو رموز بس)
+        if not re.search(r'[a-zA-Z]{2,}', t):
             return None
         return t
 
     all_labels = [l for l in (clean_label(x) for x in raw_labels) if l][:20]
+    if not all_labels:
+        # fallback: اشتق تاجات من اسم التصميم نفسه
+        words = re.sub(r'[^a-zA-Z0-9 ]', ' ', design_hint).lower().split()
+        stop  = {'by','for','the','and','or','a','an','in','on','of','to','with','gift'}
+        all_labels = [w for w in words if w not in stop and len(w) > 2][:8]
     if not all_labels:
         all_labels = [design_hint[:50]]
 
