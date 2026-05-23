@@ -1,30 +1,28 @@
-name: 🚀 Auto Post Every 3 Hours — Redbubble Smart Poster
+name: 🚀 Auto Post Every 3 Hours — Album + Reels
 
 # ══════════════════════════════════════════════════════════════
-# ⏰ مواعيد البوستات (UTC) — كل 3 ساعات
+# ⏰ جدول البوستات — كل 3 ساعات (مصر = UTC+2)
 #
-#   UTC 00:00 → مصر 02:00 صباحاً
-#   UTC 03:00 → مصر 05:00 صباحاً
-#   UTC 06:00 → مصر 08:00 صباحاً
-#   UTC 09:00 → مصر 11:00 صباحاً
-#   UTC 12:00 → مصر 02:00 ظهراً
-#   UTC 15:00 → مصر 05:00 مساءً
-#   UTC 18:00 → مصر 08:00 مساءً
-#   UTC 21:00 → مصر 11:00 مساءً
-#
-#   (مصر = UTC+2 في الشتاء / UTC+3 في الصيف)
+#   UTC 00 → مصر 02:00 ص  → Album
+#   UTC 03 → مصر 05:00 ص  → Album
+#   UTC 06 → مصر 08:00 ص  → Album
+#   UTC 09 → مصر 11:00 ص  → Album
+#   UTC 12 → مصر 02:00 م  → Album
+#   UTC 15 → مصر 05:00 م  → Album
+#   UTC 18 → مصر 08:00 م  → Reels ← مرة واحدة في اليوم
+#   UTC 21 → مصر 11:00 م  → Album
 # ══════════════════════════════════════════════════════════════
 
 on:
   schedule:
-    - cron: '0 0 * * *'    # 12:00 AM UTC  →  02:00 AM مصر
-    - cron: '0 3 * * *'    # 03:00 AM UTC  →  05:00 AM مصر
-    - cron: '0 6 * * *'    # 06:00 AM UTC  →  08:00 AM مصر
-    - cron: '0 9 * * *'    # 09:00 AM UTC  →  11:00 AM مصر
-    - cron: '0 12 * * *'   # 12:00 PM UTC  →  02:00 PM مصر
-    - cron: '0 15 * * *'   # 03:00 PM UTC  →  05:00 PM مصر
-    - cron: '0 18 * * *'   # 06:00 PM UTC  →  08:00 PM مصر
-    - cron: '0 21 * * *'   # 09:00 PM UTC  →  11:00 PM مصر
+    - cron: '0 0  * * *'   # مصر 02:00 ص → Album
+    - cron: '0 3  * * *'   # مصر 05:00 ص → Album
+    - cron: '0 6  * * *'   # مصر 08:00 ص → Album
+    - cron: '0 9  * * *'   # مصر 11:00 ص → Album
+    - cron: '0 12 * * *'   # مصر 02:00 م → Album
+    - cron: '0 15 * * *'   # مصر 05:00 م → Album
+    - cron: '0 18 * * *'   # مصر 08:00 م → Reels ✅
+    - cron: '0 21 * * *'   # مصر 11:00 م → Album
 
   workflow_dispatch:
     inputs:
@@ -36,7 +34,7 @@ on:
       post_type:
         description: '📝 نوع البوست'
         required: false
-        default: 'album'
+        default: 'auto'
         type: choice
         options: [auto, album, reels]
 
@@ -65,8 +63,9 @@ permissions:
   contents: write
 
 jobs:
+
   # ════════════════════════════════════════════════════════════
-  # 🔄 JOB 0 — Keep-alive: يمنع GitHub من إيقاف الـ schedule
+  # 🔄 JOB 0 — Keep-alive (يمنع GitHub من إيقاف الـ schedule)
   # ════════════════════════════════════════════════════════════
   keep-alive:
     runs-on: ubuntu-latest
@@ -76,6 +75,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: 🔄 Keep workflow active
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -83,7 +83,6 @@ jobs:
           echo "$(date -u)" > .github/keepalive
           git add .github/keepalive
           git diff --staged --quiet || (git commit -m "🔄 Keep-alive [skip ci]" && git push)
-
 
   # ════════════════════════════════════════════════════════════
   # 📋 JOB 1 — تحديث الكتالوج
@@ -121,7 +120,7 @@ jobs:
           echo "Egypt: $(TZ='Africa/Cairo' date '+%Y-%m-%d %H:%M %Z')"
           python update_catalog.py
 
-      - name: 💾 Save catalog to repository
+      - name: 💾 Save catalog
         if: always()
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
@@ -130,12 +129,12 @@ jobs:
           if git diff --staged --quiet; then
             echo "ℹ️ No catalog changes"
           else
-            git commit -m "📋 Daily catalog update [skip ci]"
-            git pull --rebase -X ours origin main && git push && echo "✅ Catalog saved!"
+            git commit -m "📋 Catalog update [skip ci]"
+            git pull --rebase -X ours origin main && git push && echo "✅ Saved!"
           fi
 
   # ════════════════════════════════════════════════════════════
-  # 🚀 JOB 2 — البوست الأوتوماتيك (بعد الكتالوج بـ 3 ثواني)
+  # 🚀 JOB 2 — البوست الذكي
   # ════════════════════════════════════════════════════════════
   smart-post:
     runs-on: ubuntu-latest
@@ -144,6 +143,23 @@ jobs:
     if: always()
 
     steps:
+      - name: 🕐 Detect post mode
+        id: mode
+        run: |
+          UTC_HOUR=$(date -u +%-H)
+
+          # UTC 18 = مصر 8م = Reels
+          # كل الساعات التانية = Album
+          if [ "$UTC_HOUR" -eq 18 ]; then
+            AUTO_MODE="reels"
+          else
+            AUTO_MODE="album"
+          fi
+
+          echo "utc_hour=$UTC_HOUR"     >> $GITHUB_OUTPUT
+          echo "auto_mode=$AUTO_MODE"   >> $GITHUB_OUTPUT
+          echo "🕐 UTC=$UTC_HOUR | Mode=$AUTO_MODE"
+
       - name: ⏳ Wait 3 seconds
         run: sleep 3
 
@@ -152,6 +168,14 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 1
+
+      - name: 📦 Restore today_design cache
+        uses: actions/cache@v4
+        with:
+          path: today_design.json
+          key: today-design-${{ github.run_id }}
+          restore-keys: |
+            today-design-
 
       - name: 📦 Restore post history cache
         uses: actions/cache@v4
@@ -178,49 +202,39 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 🎲 Calculate rotation index
-        id: rotation
-        run: |
-          HOUR=$(date +%-H)
-          IDX=$((HOUR / 3))
-          if [ $((IDX % 2)) -eq 0 ]; then
-            POST_TYPE_AUTO="album"
-          else
-            POST_TYPE_AUTO="reels"
-          fi
-          echo "index=$IDX"                     >> $GITHUB_OUTPUT
-          echo "post_type_auto=$POST_TYPE_AUTO" >> $GITHUB_OUTPUT
-          echo "Rotation: $IDX → $POST_TYPE_AUTO (hour=$HOUR)"
-
-      - name: ⚙️ Set environment variables
+      - name: ⚙️ Set variables
         id: vars
         run: |
-          RB_URL="${{ github.event.inputs.redbubble_url }}"
           POST_T="${{ github.event.inputs.post_type }}"
           LANG="${{ github.event.inputs.language }}"
           STY="${{ github.event.inputs.style }}"
           FORCE="${{ github.event.inputs.force_post }}"
+          RB_URL="${{ github.event.inputs.redbubble_url }}"
 
           [ -z "$POST_T" ] && POST_T="auto"
           [ -z "$LANG"   ] && LANG="english"
           [ -z "$STY"    ] && STY="mixed"
           [ -z "$FORCE"  ] && FORCE="false"
 
-          echo "rb_url=$RB_URL"    >> $GITHUB_OUTPUT
-          echo "post_type=$POST_T" >> $GITHUB_OUTPUT
-          echo "language=$LANG"    >> $GITHUB_OUTPUT
-          echo "style=$STY"        >> $GITHUB_OUTPUT
-          echo "force=$FORCE"      >> $GITHUB_OUTPUT
+          # لو auto → استخدم المود المحسوب
+          if [ "$POST_T" = "auto" ]; then
+            FINAL_TYPE="${{ steps.mode.outputs.auto_mode }}"
+          else
+            FINAL_TYPE="$POST_T"
+          fi
+
+          echo "rb_url=$RB_URL"         >> $GITHUB_OUTPUT
+          echo "post_type=$FINAL_TYPE"  >> $GITHUB_OUTPUT
+          echo "language=$LANG"         >> $GITHUB_OUTPUT
+          echo "style=$STY"             >> $GITHUB_OUTPUT
+          echo "force=$FORCE"           >> $GITHUB_OUTPUT
 
           echo "--- Settings ---"
           echo "Trigger  : ${{ github.event_name }}"
-          echo "UTC Time : $(date -u '+%H:%M')"
+          echo "UTC      : $(date -u '+%H:%M')"
           echo "Egypt    : $(TZ='Africa/Cairo' date '+%H:%M %Z')"
+          echo "Mode     : $FINAL_TYPE"
           echo "URL      : ${RB_URL:-'(auto)'}"
-          echo "PostType : $POST_T"
-          echo "Language : $LANG"
-          echo "Style    : $STY"
-          echo "Force    : $FORCE"
 
       - name: 🚀 Run Smart Poster
         env:
@@ -238,51 +252,43 @@ jobs:
           BLOGGER_REFRESH_TOKEN: ${{ secrets.BLOGGER_REFRESH_TOKEN }}
           REDBUBBLE_STORE_URL:   ${{ secrets.REDBUBBLE_STORE_URL }}
           REDBUBBLE_URL:         ${{ steps.vars.outputs.rb_url }}
-          POST_TYPE:             ${{ steps.vars.outputs.post_type == 'auto' && steps.rotation.outputs.post_type_auto || steps.vars.outputs.post_type }}
+          POST_TYPE:             ${{ steps.vars.outputs.post_type }}
           LANGUAGE:              ${{ steps.vars.outputs.language }}
           STYLE:                 ${{ steps.vars.outputs.style }}
           MAX_IMAGES:            '30'
-          POST_ROTATION_INDEX:   ${{ steps.rotation.outputs.index }}
           IGNORE_DUPLICATES:     ${{ steps.vars.outputs.force }}
         run: python main.py
 
-      - name: 💾 Save history to repository
+      - name: 💾 Save history & today_design
         if: always()
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name  "github-actions[bot]"
           git add -f designs_history.json 2>/dev/null || true
           git add -f post_history.json    2>/dev/null || true
+          git add -f today_design.json    2>/dev/null || true
           git add manual_products.json    2>/dev/null || true
           if git diff --staged --quiet; then
-            echo "ℹ️ No history changes"
+            echo "ℹ️ No changes"
           else
             git commit -m "📊 Update history [skip ci]"
             for i in 1 2 3; do
-              git pull --rebase -X ours origin main && git push && echo "✅ History saved!" && break
+              git pull --rebase -X ours origin main && git push && echo "✅ Saved!" && break
               echo "⚠️ Retry $i..."
               git rebase --abort 2>/dev/null || true
-              git checkout --ours designs_history.json post_history.json 2>/dev/null || true
-              git add -f designs_history.json post_history.json 2>/dev/null || true
+              git checkout --ours designs_history.json post_history.json today_design.json 2>/dev/null || true
+              git add -f designs_history.json post_history.json today_design.json 2>/dev/null || true
               sleep 3
             done
           fi
 
-      - name: ✅ Summary (Success)
+      - name: ✅ Summary
         if: success()
         run: |
-          echo "🎉 Posted! Trigger: ${{ github.event_name }}"
+          echo "🎉 Done! Mode: ${{ steps.vars.outputs.post_type }}"
           echo "🕐 UTC  : $(date -u '+%Y-%m-%d %H:%M')"
           echo "🕐 Egypt: $(TZ='Africa/Cairo' date '+%Y-%m-%d %H:%M %Z')"
-          [ -f designs_history.json ] && python -c "
-          import json
-          h = json.load(open('designs_history.json'))
-          print(f'Total posts   : {h.get(\"total_posts\",0)}')
-          print(f'Designs tracked: {len(h.get(\"designs\",{}))}')
-          "
 
-      - name: ❌ Summary (Failure)
+      - name: ❌ Failure
         if: failure()
-        run: |
-          echo "⚠️ Failed — Trigger: ${{ github.event_name }}"
-          echo "Check FB_TOKEN and secrets in repo settings"
+        run: echo "⚠️ Failed! Check secrets and logs above."
