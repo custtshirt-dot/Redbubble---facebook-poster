@@ -116,7 +116,7 @@ jobs:
   smart-post:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: update-catalog
+    # مستقل تماماً — بيشتغل بالتوازي مع update-catalog بدون انتظار
 
     steps:
       - name: Detect post mode
