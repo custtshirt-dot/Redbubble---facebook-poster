@@ -1,10 +1,10 @@
 {
-  "last_updated": "2026-05-24T12:13:38.165412",
+  "last_updated": "2026-05-24T15:48:38.437602",
   "store_url": "https://www.redbubble.com/people/cust-tshirts/shop",
   "total": 71,
-  "posted_count": 31,
-  "never_posted_count": 40,
-  "total_posts_made": 93,
+  "posted_count": 32,
+  "never_posted_count": 39,
+  "total_posts_made": 94,
   "designs": [
     {
       "title": "whimsical art",
@@ -259,6 +259,15 @@
       "status": "✅ Posted"
     },
     {
+      "title": "animal wall art",
+      "url": "https://www.redbubble.com/shop/ap/178699199",
+      "work_id": "178699199",
+      "post_count": 1,
+      "last_posted": "2026-05-24T12:14:47.350520",
+      "first_seen": "2026-05-21T04:13:05.901894",
+      "status": "✅ Posted"
+    },
+    {
       "title": "prints for wall",
       "url": "https://www.redbubble.com/shop/ap/180661763",
       "work_id": "180661763",
@@ -284,15 +293,6 @@
       "last_posted": "2026-05-20T20:44:49.365119",
       "first_seen": "2026-05-20T20:44:49.365112",
       "status": "✅ Posted"
-    },
-    {
-      "title": "animal wall art",
-      "url": "https://www.redbubble.com/shop/ap/178699199",
-      "work_id": "178699199",
-      "post_count": 0,
-      "last_posted": null,
-      "first_seen": "2026-05-21T04:13:05.901894",
-      "status": "🆕 Never Posted"
     },
     {
       "title": "gift for pilot",
