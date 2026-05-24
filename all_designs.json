@@ -1,10 +1,10 @@
 {
-  "last_updated": "2026-05-24T00:15:29.062482",
+  "last_updated": "2026-05-24T08:16:30.316033",
   "store_url": "https://www.redbubble.com/people/cust-tshirts/shop",
   "total": 70,
-  "posted_count": 26,
-  "never_posted_count": 44,
-  "total_posts_made": 88,
+  "posted_count": 27,
+  "never_posted_count": 43,
+  "total_posts_made": 89,
   "designs": [
     {
       "title": "whimsical art",
@@ -205,6 +205,15 @@
       "status": "✅ Posted"
     },
     {
+      "title": "gift for gamer",
+      "url": "https://www.redbubble.com/shop/ap/180627854",
+      "work_id": "180627854",
+      "post_count": 1,
+      "last_posted": "2026-05-24T00:17:43.148107",
+      "first_seen": "2026-05-21T04:13:05.901881",
+      "status": "✅ Posted"
+    },
+    {
       "title": "prints for wall",
       "url": "https://www.redbubble.com/shop/ap/180814774",
       "work_id": "180814774",
@@ -239,15 +248,6 @@
       "last_posted": "2026-05-20T20:44:49.365119",
       "first_seen": "2026-05-20T20:44:49.365112",
       "status": "✅ Posted"
-    },
-    {
-      "title": "gift for gamer",
-      "url": "https://www.redbubble.com/shop/ap/180627854",
-      "work_id": "180627854",
-      "post_count": 0,
-      "last_posted": null,
-      "first_seen": "2026-05-21T04:13:05.901881",
-      "status": "🆕 Never Posted"
     },
     {
       "title": "gift for nurse",
