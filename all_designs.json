@@ -1,10 +1,10 @@
 {
-  "last_updated": "2026-05-24T09:10:41.066684",
+  "last_updated": "2026-05-24T10:14:00.120538",
   "store_url": "https://www.redbubble.com/people/cust-tshirts/shop",
-  "total": 70,
-  "posted_count": 28,
+  "total": 71,
+  "posted_count": 29,
   "never_posted_count": 42,
-  "total_posts_made": 90,
+  "total_posts_made": 91,
   "designs": [
     {
       "title": "whimsical art",
@@ -223,6 +223,15 @@
       "status": "✅ Posted"
     },
     {
+      "title": "gift for teacher",
+      "url": "https://www.redbubble.com/shop/ap/180633337",
+      "work_id": "180633337",
+      "post_count": 1,
+      "last_posted": "2026-05-24T09:12:17.457255",
+      "first_seen": "2026-05-21T04:13:05.901886",
+      "status": "✅ Posted"
+    },
+    {
       "title": "prints for wall",
       "url": "https://www.redbubble.com/shop/ap/180814774",
       "work_id": "180814774",
@@ -259,12 +268,12 @@
       "status": "✅ Posted"
     },
     {
-      "title": "gift for teacher",
-      "url": "https://www.redbubble.com/shop/ap/180633337",
-      "work_id": "180633337",
+      "title": "father's day gift",
+      "url": "https://www.redbubble.com/shop/ap/180986902",
+      "work_id": "180986902",
       "post_count": 0,
       "last_posted": null,
-      "first_seen": "2026-05-21T04:13:05.901886",
+      "first_seen": null,
       "status": "🆕 Never Posted"
     },
     {
