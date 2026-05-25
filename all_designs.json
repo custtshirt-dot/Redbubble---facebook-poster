@@ -1,10 +1,10 @@
 {
-  "last_updated": "2026-05-24T21:15:00.149447",
+  "last_updated": "2026-05-25T11:39:48.887313",
   "store_url": "https://www.redbubble.com/people/cust-tshirts/shop",
   "total": 71,
-  "posted_count": 33,
-  "never_posted_count": 38,
-  "total_posts_made": 95,
+  "posted_count": 34,
+  "never_posted_count": 37,
+  "total_posts_made": 96,
   "designs": [
     {
       "title": "whimsical art",
@@ -277,6 +277,15 @@
       "status": "✅ Posted"
     },
     {
+      "title": "gift for book lover",
+      "url": "https://www.redbubble.com/shop/ap/178447220",
+      "work_id": "178447220",
+      "post_count": 1,
+      "last_posted": "2026-05-24T21:16:26.942493",
+      "first_seen": "2026-05-21T04:13:05.901900",
+      "status": "✅ Posted"
+    },
+    {
       "title": "prints for wall",
       "url": "https://www.redbubble.com/shop/ap/180661763",
       "work_id": "180661763",
@@ -302,15 +311,6 @@
       "last_posted": "2026-05-20T20:44:49.365119",
       "first_seen": "2026-05-20T20:44:49.365112",
       "status": "✅ Posted"
-    },
-    {
-      "title": "gift for book lover",
-      "url": "https://www.redbubble.com/shop/ap/178447220",
-      "work_id": "178447220",
-      "post_count": 0,
-      "last_posted": null,
-      "first_seen": "2026-05-21T04:13:05.901900",
-      "status": "🆕 Never Posted"
     },
     {
       "title": "dramatic wall art",
