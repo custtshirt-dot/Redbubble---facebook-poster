@@ -1,10 +1,10 @@
 {
-  "last_updated": "2026-05-25T16:07:13.867838",
+  "last_updated": "2026-05-25T16:54:40.263657",
   "store_url": "https://www.redbubble.com/people/cust-tshirts/shop",
   "total": 71,
-  "posted_count": 37,
-  "never_posted_count": 34,
-  "total_posts_made": 99,
+  "posted_count": 38,
+  "never_posted_count": 33,
+  "total_posts_made": 100,
   "designs": [
     {
       "title": "whimsical art",
@@ -323,6 +323,15 @@
     },
     {
       "title": "prints for wall",
+      "url": "https://www.redbubble.com/shop/ap/180650784",
+      "work_id": "180650784",
+      "post_count": 1,
+      "last_posted": "2026-05-25T16:08:42.664825",
+      "first_seen": "2026-05-21T04:13:05.901912",
+      "status": "✅ Posted"
+    },
+    {
+      "title": "prints for wall",
       "url": "https://www.redbubble.com/shop/ap/177693772",
       "work_id": "177693772",
       "post_count": 1,
@@ -338,15 +347,6 @@
       "last_posted": "2026-05-20T20:44:49.365119",
       "first_seen": "2026-05-20T20:44:49.365112",
       "status": "✅ Posted"
-    },
-    {
-      "title": "prints for wall",
-      "url": "https://www.redbubble.com/shop/ap/180650784",
-      "work_id": "180650784",
-      "post_count": 0,
-      "last_posted": null,
-      "first_seen": "2026-05-21T04:13:05.901912",
-      "status": "🆕 Never Posted"
     },
     {
       "title": "prints for wall",
