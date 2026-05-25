@@ -1,10 +1,10 @@
 {
-  "last_updated": "2026-05-25T11:39:48.887313",
+  "last_updated": "2026-05-25T12:51:25.863102",
   "store_url": "https://www.redbubble.com/people/cust-tshirts/shop",
   "total": 71,
-  "posted_count": 34,
-  "never_posted_count": 37,
-  "total_posts_made": 96,
+  "posted_count": 35,
+  "never_posted_count": 36,
+  "total_posts_made": 97,
   "designs": [
     {
       "title": "whimsical art",
@@ -286,6 +286,15 @@
       "status": "✅ Posted"
     },
     {
+      "title": "dramatic wall art",
+      "url": "https://www.redbubble.com/shop/ap/180646329",
+      "work_id": "180646329",
+      "post_count": 1,
+      "last_posted": "2026-05-25T11:41:14.212315",
+      "first_seen": "2026-05-21T04:13:05.901902",
+      "status": "✅ Posted"
+    },
+    {
       "title": "prints for wall",
       "url": "https://www.redbubble.com/shop/ap/180661763",
       "work_id": "180661763",
@@ -311,15 +320,6 @@
       "last_posted": "2026-05-20T20:44:49.365119",
       "first_seen": "2026-05-20T20:44:49.365112",
       "status": "✅ Posted"
-    },
-    {
-      "title": "dramatic wall art",
-      "url": "https://www.redbubble.com/shop/ap/180646329",
-      "work_id": "180646329",
-      "post_count": 0,
-      "last_posted": null,
-      "first_seen": "2026-05-21T04:13:05.901902",
-      "status": "🆕 Never Posted"
     },
     {
       "title": "prints for wall",
