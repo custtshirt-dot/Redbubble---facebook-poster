@@ -1,10 +1,10 @@
 {
-  "last_updated": "2026-05-26T17:48:33.006229",
+  "last_updated": "2026-05-26T18:13:42.374157",
   "store_url": "https://www.redbubble.com/people/cust-tshirts/shop",
   "total": 71,
-  "posted_count": 43,
-  "never_posted_count": 28,
-  "total_posts_made": 105,
+  "posted_count": 44,
+  "never_posted_count": 27,
+  "total_posts_made": 106,
   "designs": [
     {
       "title": "whimsical art",
@@ -377,6 +377,15 @@
     },
     {
       "title": "prints for wall",
+      "url": "https://www.redbubble.com/shop/ap/176951512",
+      "work_id": "176951512",
+      "post_count": 1,
+      "last_posted": "2026-05-26T17:50:08.776423",
+      "first_seen": "2026-05-21T04:13:05.901927",
+      "status": "✅ Posted"
+    },
+    {
+      "title": "prints for wall",
       "url": "https://www.redbubble.com/shop/ap/177693772",
       "work_id": "177693772",
       "post_count": 1,
@@ -392,15 +401,6 @@
       "last_posted": "2026-05-20T20:44:49.365119",
       "first_seen": "2026-05-20T20:44:49.365112",
       "status": "✅ Posted"
-    },
-    {
-      "title": "prints for wall",
-      "url": "https://www.redbubble.com/shop/ap/176951512",
-      "work_id": "176951512",
-      "post_count": 0,
-      "last_posted": null,
-      "first_seen": "2026-05-21T04:13:05.901927",
-      "status": "🆕 Never Posted"
     },
     {
       "title": "true crime gift",
