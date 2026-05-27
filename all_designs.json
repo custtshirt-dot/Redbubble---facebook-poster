@@ -1,10 +1,10 @@
 {
-  "last_updated": "2026-05-27T19:39:27.274931",
+  "last_updated": "2026-05-27T21:29:28.728975",
   "store_url": "https://www.redbubble.com/people/cust-tshirts/shop",
   "total": 71,
-  "posted_count": 50,
-  "never_posted_count": 21,
-  "total_posts_made": 112,
+  "posted_count": 51,
+  "never_posted_count": 20,
+  "total_posts_made": 113,
   "designs": [
     {
       "title": "whimsical art",
@@ -448,6 +448,15 @@
       "status": "✅ Posted"
     },
     {
+      "title": "motivational quotes for work",
+      "url": "https://www.redbubble.com/shop/ap/174244624",
+      "work_id": "174244624",
+      "post_count": 1,
+      "last_posted": "2026-05-27T19:41:17.346502",
+      "first_seen": "2026-05-21T04:13:05.901949",
+      "status": "✅ Posted"
+    },
+    {
       "title": "halloween gift",
       "url": "https://www.redbubble.com/shop/ap/177692353",
       "work_id": "177692353",
@@ -455,15 +464,6 @@
       "last_posted": "2026-05-20T20:44:49.365119",
       "first_seen": "2026-05-20T20:44:49.365112",
       "status": "✅ Posted"
-    },
-    {
-      "title": "motivational quotes for work",
-      "url": "https://www.redbubble.com/shop/ap/174244624",
-      "work_id": "174244624",
-      "post_count": 0,
-      "last_posted": null,
-      "first_seen": "2026-05-21T04:13:05.901949",
-      "status": "🆕 Never Posted"
     },
     {
       "title": "stay true to yourself",
