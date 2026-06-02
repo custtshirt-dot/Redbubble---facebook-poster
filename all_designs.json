@@ -1,10 +1,10 @@
 {
-  "last_updated": "2026-06-02T13:00:15.274795",
+  "last_updated": "2026-06-02T13:41:37.414412",
   "store_url": "https://www.redbubble.com/people/cust-tshirts/shop",
   "total": 73,
-  "posted_count": 72,
-  "never_posted_count": 1,
-  "total_posts_made": 152,
+  "posted_count": 73,
+  "never_posted_count": 0,
+  "total_posts_made": 153,
   "designs": [
     {
       "title": "whimsical art",
@@ -658,10 +658,10 @@
       "title": "raksha bandhan",
       "url": "https://www.redbubble.com/shop/ap/181197312",
       "work_id": "181197312",
-      "post_count": 0,
-      "last_posted": null,
+      "post_count": 1,
+      "last_posted": "2026-06-02T13:01:07.388373",
       "first_seen": "2026-06-02T12:16:40.394127",
-      "status": "🆕 Never Posted"
+      "status": "✅ Posted"
     }
   ]
 }
