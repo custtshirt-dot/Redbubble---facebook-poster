@@ -1,10 +1,10 @@
 {
-  "last_updated": "2026-06-03T20:41:23.232610",
+  "last_updated": "2026-06-03T22:12:56.340141",
   "store_url": "https://www.redbubble.com/people/cust-tshirts/shop",
   "total": 73,
   "posted_count": 73,
   "never_posted_count": 0,
-  "total_posts_made": 161,
+  "total_posts_made": 162,
   "designs": [
     {
       "title": "whimsical art",
@@ -196,6 +196,15 @@
       "status": "✅ Posted"
     },
     {
+      "title": "gift for chef",
+      "url": "https://www.redbubble.com/shop/ap/180627663",
+      "work_id": "180627663",
+      "post_count": 2,
+      "last_posted": "2026-06-03T20:42:59.639794",
+      "first_seen": "2026-05-21T04:13:05.901878",
+      "status": "✅ Posted"
+    },
+    {
       "title": "prints for wall",
       "url": "https://www.redbubble.com/shop/ap/180814774",
       "work_id": "180814774",
@@ -247,15 +256,6 @@
       "post_count": 1,
       "last_posted": "2026-05-24T10:15:45.539778",
       "first_seen": "2026-05-24T10:13:59.802782",
-      "status": "✅ Posted"
-    },
-    {
-      "title": "gift for chef",
-      "url": "https://www.redbubble.com/shop/ap/180627663",
-      "work_id": "180627663",
-      "post_count": 1,
-      "last_posted": "2026-05-23T20:38:40.229402",
-      "first_seen": "2026-05-21T04:13:05.901878",
       "status": "✅ Posted"
     },
     {
