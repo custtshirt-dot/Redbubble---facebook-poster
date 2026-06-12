@@ -1,10 +1,10 @@
 {
-  "last_updated": "2026-06-11T22:48:30.151114",
+  "last_updated": "2026-06-12T04:11:04.806866",
   "store_url": "https://www.redbubble.com/people/cust-tshirts/shop",
   "total": 75,
-  "posted_count": 73,
-  "never_posted_count": 2,
-  "total_posts_made": 225,
+  "posted_count": 74,
+  "never_posted_count": 1,
+  "total_posts_made": 226,
   "designs": [
     {
       "title": "whimsical art",
@@ -667,10 +667,10 @@
       "title": "hamster lover gift",
       "url": "https://www.redbubble.com/shop/ap/181429426",
       "work_id": "181429426",
-      "post_count": 0,
-      "last_posted": null,
-      "first_seen": null,
-      "status": "🆕 Never Posted"
+      "post_count": 1,
+      "last_posted": "2026-06-11T22:50:15.190655",
+      "first_seen": "2026-06-11T22:48:38.717189",
+      "status": "✅ Posted"
     },
     {
       "title": "funny hamster gift",
@@ -678,7 +678,7 @@
       "work_id": "181449157",
       "post_count": 0,
       "last_posted": null,
-      "first_seen": null,
+      "first_seen": "2026-06-11T22:48:38.717200",
       "status": "🆕 Never Posted"
     }
   ]
