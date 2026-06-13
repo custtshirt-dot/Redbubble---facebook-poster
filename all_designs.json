@@ -1,10 +1,10 @@
 {
-  "last_updated": "2026-06-13T09:18:11.120433",
+  "last_updated": "2026-06-13T11:08:40.615478",
   "store_url": "https://www.redbubble.com/people/cust-tshirts/shop",
   "total": 75,
   "posted_count": 75,
   "never_posted_count": 0,
-  "total_posts_made": 235,
+  "total_posts_made": 236,
   "designs": [
     {
       "title": "whimsical art",
@@ -187,6 +187,15 @@
       "status": "✅ Posted"
     },
     {
+      "title": "gift for wedding",
+      "url": "https://www.redbubble.com/shop/ap/180633563",
+      "work_id": "180633563",
+      "post_count": 3,
+      "last_posted": "2026-06-13T09:19:52.069509",
+      "first_seen": "2026-05-21T04:13:05.901875",
+      "status": "✅ Posted"
+    },
+    {
       "title": "prints for wall",
       "url": "https://www.redbubble.com/shop/ap/180814774",
       "work_id": "180814774",
@@ -238,15 +247,6 @@
       "post_count": 2,
       "last_posted": "2026-06-04T10:45:31.108198",
       "first_seen": "2026-05-24T10:13:59.802782",
-      "status": "✅ Posted"
-    },
-    {
-      "title": "gift for wedding",
-      "url": "https://www.redbubble.com/shop/ap/180633563",
-      "work_id": "180633563",
-      "post_count": 2,
-      "last_posted": "2026-06-03T20:01:36.123373",
-      "first_seen": "2026-05-21T04:13:05.901875",
       "status": "✅ Posted"
     },
     {
