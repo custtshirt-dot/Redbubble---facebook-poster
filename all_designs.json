@@ -1,10 +1,10 @@
 {
-  "last_updated": "2026-06-20T08:58:17.882794",
+  "last_updated": "2026-06-20T11:06:51.077390",
   "store_url": "https://www.redbubble.com/people/cust-tshirts/shop",
   "total": 75,
   "posted_count": 75,
   "never_posted_count": 0,
-  "total_posts_made": 289,
+  "total_posts_made": 290,
   "designs": [
     {
       "title": "whimsical art",
@@ -13,6 +13,15 @@
       "post_count": 4,
       "last_posted": "2026-06-10T15:27:49.971648",
       "first_seen": "2026-05-21T16:04:39.574039",
+      "status": "✅ Posted"
+    },
+    {
+      "title": "tripawd cat mom",
+      "url": "https://www.redbubble.com/shop/ap/177168089",
+      "work_id": "177168089",
+      "post_count": 4,
+      "last_posted": "2026-06-20T08:59:47.296841",
+      "first_seen": "2026-05-21T04:13:05.901814",
       "status": "✅ Posted"
     },
     {
@@ -103,15 +112,6 @@
       "post_count": 3,
       "last_posted": "2026-06-10T20:39:39.514417",
       "first_seen": "2026-05-22T07:29:38.226668",
-      "status": "✅ Posted"
-    },
-    {
-      "title": "tripawd cat mom",
-      "url": "https://www.redbubble.com/shop/ap/177168089",
-      "work_id": "177168089",
-      "post_count": 3,
-      "last_posted": "2026-06-10T10:03:39.985107",
-      "first_seen": "2026-05-21T04:13:05.901814",
       "status": "✅ Posted"
     },
     {
