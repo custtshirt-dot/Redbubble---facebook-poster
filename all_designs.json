@@ -1,10 +1,10 @@
 {
-  "last_updated": "2026-06-23T03:43:27.245180",
+  "last_updated": "2026-06-23T06:51:48.811257",
   "store_url": "https://www.redbubble.com/people/cust-tshirts/shop",
   "total": 75,
   "posted_count": 75,
   "never_posted_count": 0,
-  "total_posts_made": 309,
+  "total_posts_made": 310,
   "designs": [
     {
       "title": "whimsical art",
@@ -178,6 +178,15 @@
       "status": "✅ Posted"
     },
     {
+      "title": "car guy gift",
+      "url": "https://www.redbubble.com/shop/ap/180320081",
+      "work_id": "180320081",
+      "post_count": 4,
+      "last_posted": "2026-06-23T03:44:34.048045",
+      "first_seen": "2026-05-21T04:13:05.901872",
+      "status": "✅ Posted"
+    },
+    {
       "title": "prints for wall",
       "url": "https://www.redbubble.com/shop/ap/180814774",
       "work_id": "180814774",
@@ -229,15 +238,6 @@
       "post_count": 3,
       "last_posted": "2026-06-13T22:00:22.686235",
       "first_seen": "2026-05-24T10:13:59.802782",
-      "status": "✅ Posted"
-    },
-    {
-      "title": "car guy gift",
-      "url": "https://www.redbubble.com/shop/ap/180320081",
-      "work_id": "180320081",
-      "post_count": 3,
-      "last_posted": "2026-06-13T07:00:53.641080",
-      "first_seen": "2026-05-21T04:13:05.901872",
       "status": "✅ Posted"
     },
     {
