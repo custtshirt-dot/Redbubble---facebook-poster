@@ -231,6 +231,8 @@ def get_target_url() -> dict:
 # ──────────────────────────────────────────────────────────────
 
 def get_images_with_fallback(target: dict) -> tuple:
+    from store_manager import url_key, record_failed_design
+
     url   = target['url']
     title = target.get('title', '')
     is_new = target.get('is_new', False)
@@ -238,17 +240,40 @@ def get_images_with_fallback(target: dict) -> tuple:
     print(f"\n🔍 Extracting images from:\n   {url[:80]}")
     images = extract_all_images(url)
 
+    # ✅ لو فشل الاستخراج، سجّله في failed_designs.json وجرّب تصاميم تانية
+    #    (لغاية 4 محاولات) بدل ما ترجع لنفس التصميم اللي فشل
+    tried_urls = {url_key(url)}
+    attempts = 0
+    max_attempts = 4
+
     if len(images) < 2 and not REDBUBBLE_URL:
-        print(f"⚠️ Only {len(images)} images — trying next design...")
-        next_product = get_next_product_to_post(REDBUBBLE_STORE_URL)
-        if next_product and next_product['url'] != url:
-            url    = next_product['url']
-            title  = next_product.get('title', '')
-            is_new = next_product.get('is_new', False)
-            images = extract_all_images(url)
+        record_failed_design(url, title, reason=f'{len(images)} images found')
+
+    while len(images) < 2 and not REDBUBBLE_URL and attempts < max_attempts:
+        attempts += 1
+        print(f"⚠️ Only {len(images)} images — trying another design ({attempts}/{max_attempts})...")
+        next_product = get_next_product_to_post(REDBUBBLE_STORE_URL, exclude_urls=tried_urls)
+        if not next_product:
+            print("   ⚠️ No more designs available to try")
+            break
+
+        next_key = url_key(next_product['url'])
+        if next_key in tried_urls:
+            # احتياطي: لو رجّع نفس حاجة اتجربت قبل كده لأي سبب
+            break
+
+        tried_urls.add(next_key)
+        url    = next_product['url']
+        title  = next_product.get('title', '')
+        is_new = next_product.get('is_new', False)
+        print(f"\n🔍 Extracting images from:\n   {url[:80]}")
+        images = extract_all_images(url)
+
+        if len(images) < 2:
+            record_failed_design(url, title, reason=f'{len(images)} images found')
 
     if len(images) < 2:
-        print(f"❌ Not enough images ({len(images)})")
+        print(f"❌ Not enough images ({len(images)}) after {attempts} attempt(s)")
         sys.exit(1)
 
     return images, url, title, is_new
