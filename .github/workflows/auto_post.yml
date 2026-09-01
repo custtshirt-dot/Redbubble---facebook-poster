@@ -218,7 +218,7 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name  "github-actions[bot]"
-          git add -f designs_history.json post_history.json today_design.json 2>/dev/null || true
+          git add -f designs_history.json post_history.json today_design.json failed_designs.json 2>/dev/null || true
           git diff --staged --quiet && echo "no changes" && exit 0
           git commit -m "history update [skip ci]"
           for i in 1 2 3; do
