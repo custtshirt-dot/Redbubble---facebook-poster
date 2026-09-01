@@ -85,6 +85,58 @@ def save_designs_history(history: dict) -> bool:
         return False
 
 
+# ══════════════════════════════════════════════════════════════
+# ❌ FAILED DESIGNS (تصاميم فشل استخراج الصور منها)
+# ══════════════════════════════════════════════════════════════
+
+FAILED_DESIGNS_FILE = 'failed_designs.json'
+
+
+def load_failed_designs() -> dict:
+    """تحميل ملف التصاميم الفاشلة"""
+    if os.path.exists(FAILED_DESIGNS_FILE):
+        try:
+            with open(FAILED_DESIGNS_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                data.setdefault('designs', {})
+                return data
+        except Exception as e:
+            print(f"⚠️ Failed-designs load error: {e} — starting fresh")
+
+    return {'designs': {}}
+
+
+def save_failed_designs(data: dict) -> bool:
+    """حفظ ملف التصاميم الفاشلة"""
+    try:
+        with open(FAILED_DESIGNS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        return True
+    except Exception as e:
+        print(f"⚠️ Failed to save failed_designs.json: {e}")
+        return False
+
+
+def record_failed_design(url: str, title: str = '', reason: str = 'no images found') -> None:
+    """
+    ⚠️ تسجيل إن السحب من التصميم ده فشل (مفيش صور كفاية مثلاً)
+    كل تصميم بيتسجل مرة واحدة مع عدد مرات الفشل وآخر وقت فشل فيه
+    """
+    data = load_failed_designs()
+    key = url_key(url)
+    existing = data['designs'].get(key, {})
+    data['designs'][key] = {
+        'url':          url,
+        'title':        title or existing.get('title', ''),
+        'reason':       reason,
+        'fail_count':   existing.get('fail_count', 0) + 1,
+        'first_failed': existing.get('first_failed', datetime.now().isoformat()),
+        'last_failed':  datetime.now().isoformat(),
+    }
+    save_failed_designs(data)
+    print(f"   📝 Logged to failed_designs.json ({data['designs'][key]['fail_count']}x failed)")
+
+
 def record_design_posted(url: str, title: str = '') -> None:
     """تسجيل إن التصميم ده اتنشر بنجاح"""
     history = load_designs_history()
@@ -425,7 +477,7 @@ def _register_designs(all_designs: list) -> int:
     return new_count
 
 
-def get_next_product_to_post(store_url: str = None) -> dict | None:
+def get_next_product_to_post(store_url: str = None, exclude_urls: set = None) -> dict | None:
     """
     🧠 الدالة الرئيسية - بتختار التصميم الجاي بذكاء
 
@@ -434,10 +486,14 @@ def get_next_product_to_post(store_url: str = None) -> dict | None:
     2. التصاميم الجديدة من الستور (اكتُشفت بعد آخر فحص)
     3. أقدم تصميم اتنشر (بدون تكرار اللي اتنشر قبله مباشرة)
 
+    exclude_urls: مجموعة url_key بتاعت تصاميم اتجربت في نفس التشغيلة دي وفشلت
+                  (مثلاً معندهاش صور) عشان منرجعش نختارها تاني.
+
     بيرجع: {'url': str, 'title': str, 'is_new': bool} أو None
     """
     history = load_designs_history()
     last_posted_url = history.get('last_posted_url')
+    exclude_urls = exclude_urls or set()
 
     all_designs = []
 
@@ -485,6 +541,10 @@ def get_next_product_to_post(store_url: str = None) -> dict | None:
 
     # إعادة تحميل الهيستوري
     history = load_designs_history()
+
+    # ── استبعاد التصاميم اللي فشلت في نفس التشغيلة دي ────────
+    if exclude_urls:
+        all_designs = [d for d in all_designs if url_key(d['url']) not in exclude_urls]
 
     # ── 5. تصنيف التصاميم ────────────────────────────────────
     never_posted = []
