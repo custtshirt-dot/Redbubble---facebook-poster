@@ -1,10 +1,10 @@
 {
-  "last_updated": "2026-09-01T22:56:11.419907",
+  "last_updated": "2026-09-02T03:25:40.112004",
   "store_url": "https://www.redbubble.com/people/cust-tshirts/shop",
-  "total": 75,
+  "total": 76,
   "posted_count": 75,
-  "never_posted_count": 0,
-  "total_posts_made": 348,
+  "never_posted_count": 1,
+  "total_posts_made": 349,
   "designs": [
     {
       "title": "whimsical art",
@@ -556,6 +556,15 @@
       "status": "✅ Posted"
     },
     {
+      "title": "halloween gift",
+      "url": "https://www.redbubble.com/shop/ap/177709333",
+      "work_id": "177709333",
+      "post_count": 4,
+      "last_posted": "2026-09-01T22:57:51.950259",
+      "first_seen": "2026-05-21T04:13:05.901985",
+      "status": "✅ Posted"
+    },
+    {
       "title": "diwali",
       "url": "https://www.redbubble.com/shop/ap/181199720",
       "work_id": "181199720",
@@ -580,15 +589,6 @@
       "post_count": 3,
       "last_posted": "2026-06-17T20:23:34.303413",
       "first_seen": "2026-05-21T04:13:05.901974",
-      "status": "✅ Posted"
-    },
-    {
-      "title": "halloween gift",
-      "url": "https://www.redbubble.com/shop/ap/177709333",
-      "work_id": "177709333",
-      "post_count": 3,
-      "last_posted": "2026-06-18T08:10:31.261599",
-      "first_seen": "2026-05-21T04:13:05.901985",
       "status": "✅ Posted"
     },
     {
@@ -680,6 +680,15 @@
       "last_posted": "2026-06-21T19:53:49.707181",
       "first_seen": "2026-06-11T22:48:38.717200",
       "status": "✅ Posted"
+    },
+    {
+      "title": "raksha bandhan",
+      "url": "https://www.redbubble.com/shop/ap/183495591",
+      "work_id": "183495591",
+      "post_count": 0,
+      "last_posted": null,
+      "first_seen": null,
+      "status": "🆕 Never Posted"
     }
   ]
 }
