@@ -1,10 +1,10 @@
 {
-  "last_updated": "2026-09-03T15:43:36.412824",
+  "last_updated": "2026-09-03T18:26:22.901453",
   "store_url": "https://www.redbubble.com/people/cust-tshirts/shop",
-  "total": 79,
-  "posted_count": 77,
+  "total": 80,
+  "posted_count": 78,
   "never_posted_count": 2,
-  "total_posts_made": 361,
+  "total_posts_made": 362,
   "designs": [
     {
       "title": "whimsical art",
@@ -682,6 +682,15 @@
       "status": "✅ Posted"
     },
     {
+      "title": "cat pun",
+      "url": "https://www.redbubble.com/shop/ap/183536031",
+      "work_id": "183536031",
+      "post_count": 1,
+      "last_posted": "2026-09-03T15:44:53.652256",
+      "first_seen": "2026-09-03T15:43:34.628511",
+      "status": "✅ Posted"
+    },
+    {
       "title": "motivation",
       "url": "https://www.redbubble.com/shop/ap/183509711",
       "work_id": "183509711",
@@ -700,9 +709,9 @@
       "status": "✅ Posted"
     },
     {
-      "title": "cat pun",
-      "url": "https://www.redbubble.com/shop/ap/183536031",
-      "work_id": "183536031",
+      "title": "coffee pun",
+      "url": "https://www.redbubble.com/shop/ap/183540010",
+      "work_id": "183540010",
       "post_count": 0,
       "last_posted": null,
       "first_seen": null,
@@ -714,7 +723,7 @@
       "work_id": "183535213",
       "post_count": 0,
       "last_posted": null,
-      "first_seen": null,
+      "first_seen": "2026-09-03T15:43:34.628524",
       "status": "🆕 Never Posted"
     }
   ]
