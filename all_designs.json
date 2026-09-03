@@ -1,10 +1,10 @@
 {
-  "last_updated": "2026-09-03T03:27:25.706687",
+  "last_updated": "2026-09-03T07:49:58.492351",
   "store_url": "https://www.redbubble.com/people/cust-tshirts/shop",
   "total": 76,
   "posted_count": 76,
   "never_posted_count": 0,
-  "total_posts_made": 357,
+  "total_posts_made": 358,
   "designs": [
     {
       "title": "whimsical art",
@@ -628,6 +628,15 @@
       "status": "✅ Posted"
     },
     {
+      "title": "halloween gift",
+      "url": "https://www.redbubble.com/shop/ap/177112054",
+      "work_id": "177112054",
+      "post_count": 4,
+      "last_posted": "2026-09-03T03:28:37.624978",
+      "first_seen": "2026-05-21T04:13:05.902008",
+      "status": "✅ Posted"
+    },
+    {
       "title": "diwali",
       "url": "https://www.redbubble.com/shop/ap/181199720",
       "work_id": "181199720",
@@ -652,15 +661,6 @@
       "post_count": 3,
       "last_posted": "2026-06-17T20:23:34.303413",
       "first_seen": "2026-05-21T04:13:05.901974",
-      "status": "✅ Posted"
-    },
-    {
-      "title": "halloween gift",
-      "url": "https://www.redbubble.com/shop/ap/177112054",
-      "work_id": "177112054",
-      "post_count": 3,
-      "last_posted": "2026-06-19T10:29:05.004911",
-      "first_seen": "2026-05-21T04:13:05.902008",
       "status": "✅ Posted"
     },
     {
