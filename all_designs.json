@@ -1,10 +1,10 @@
 {
-  "last_updated": "2026-09-05T22:34:53.606207",
+  "last_updated": "2026-09-06T03:27:33.685122",
   "store_url": "https://www.redbubble.com/people/cust-tshirts/shop",
   "total": 83,
   "posted_count": 83,
   "never_posted_count": 0,
-  "total_posts_made": 378,
+  "total_posts_made": 379,
   "designs": [
     {
       "title": "whimsical art",
@@ -58,6 +58,15 @@
       "post_count": 5,
       "last_posted": "2026-09-05T20:12:07.375916",
       "first_seen": "2026-05-21T04:13:05.901834",
+      "status": "✅ Posted"
+    },
+    {
+      "title": "cat mom gift",
+      "url": "https://www.redbubble.com/shop/ap/177701196",
+      "work_id": "177701196",
+      "post_count": 5,
+      "last_posted": "2026-09-05T22:36:04.508222",
+      "first_seen": "2026-05-21T04:13:05.901837",
       "status": "✅ Posted"
     },
     {
@@ -139,15 +148,6 @@
       "post_count": 4,
       "last_posted": "2026-06-21T09:53:09.749355",
       "first_seen": "2026-05-22T17:19:03.082496",
-      "status": "✅ Posted"
-    },
-    {
-      "title": "cat mom gift",
-      "url": "https://www.redbubble.com/shop/ap/177701196",
-      "work_id": "177701196",
-      "post_count": 4,
-      "last_posted": "2026-06-21T04:25:28.773240",
-      "first_seen": "2026-05-21T04:13:05.901837",
       "status": "✅ Posted"
     },
     {
