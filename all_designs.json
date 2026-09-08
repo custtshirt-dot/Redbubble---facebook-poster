@@ -1,10 +1,10 @@
 {
-  "last_updated": "2026-09-08T10:44:44.844677",
+  "last_updated": "2026-09-08T13:08:52.777307",
   "store_url": "https://www.redbubble.com/people/cust-tshirts/shop",
   "total": 83,
   "posted_count": 83,
   "never_posted_count": 0,
-  "total_posts_made": 397,
+  "total_posts_made": 398,
   "designs": [
     {
       "title": "whimsical art",
@@ -13,6 +13,15 @@
       "post_count": 6,
       "last_posted": "2026-09-05T12:13:16.613272",
       "first_seen": "2026-05-21T16:04:39.574039",
+      "status": "✅ Posted"
+    },
+    {
+      "title": "father's day gift",
+      "url": "https://www.redbubble.com/shop/ap/180986902",
+      "work_id": "180986902",
+      "post_count": 5,
+      "last_posted": "2026-09-08T10:47:07.255143",
+      "first_seen": "2026-05-24T10:13:59.802782",
       "status": "✅ Posted"
     },
     {
@@ -274,15 +283,6 @@
       "post_count": 5,
       "last_posted": "2026-09-06T20:16:23.455402",
       "first_seen": "2026-06-02T12:16:40.394114",
-      "status": "✅ Posted"
-    },
-    {
-      "title": "father's day gift",
-      "url": "https://www.redbubble.com/shop/ap/180986902",
-      "work_id": "180986902",
-      "post_count": 4,
-      "last_posted": "2026-06-23T20:15:26.775161",
-      "first_seen": "2026-05-24T10:13:59.802782",
       "status": "✅ Posted"
     },
     {
