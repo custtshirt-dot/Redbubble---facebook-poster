@@ -1,10 +1,10 @@
 {
-  "last_updated": "2026-09-17T11:07:59.567542",
+  "last_updated": "2026-09-17T13:53:16.146250",
   "store_url": "https://www.redbubble.com/people/cust-tshirts/shop",
-  "total": 83,
+  "total": 84,
   "posted_count": 83,
-  "never_posted_count": 0,
-  "total_posts_made": 462,
+  "never_posted_count": 1,
+  "total_posts_made": 463,
   "designs": [
     {
       "title": "whimsical art",
@@ -13,6 +13,15 @@
       "post_count": 7,
       "last_posted": "2026-09-16T13:50:42.992859",
       "first_seen": "2026-05-21T16:04:39.574039",
+      "status": "✅ Posted"
+    },
+    {
+      "title": "funny cat shirt",
+      "url": "https://www.redbubble.com/shop/ap/180950204",
+      "work_id": "180950204",
+      "post_count": 6,
+      "last_posted": "2026-09-17T11:09:03.856529",
+      "first_seen": "2026-05-22T17:19:03.082496",
       "status": "✅ Posted"
     },
     {
@@ -148,15 +157,6 @@
       "post_count": 5,
       "last_posted": "2026-09-08T10:47:07.255143",
       "first_seen": "2026-05-24T10:13:59.802782",
-      "status": "✅ Posted"
-    },
-    {
-      "title": "funny cat shirt",
-      "url": "https://www.redbubble.com/shop/ap/180950204",
-      "work_id": "180950204",
-      "post_count": 5,
-      "last_posted": "2026-09-06T07:42:20.456923",
-      "first_seen": "2026-05-22T17:19:03.082496",
       "status": "✅ Posted"
     },
     {
@@ -752,6 +752,15 @@
       "last_posted": "2026-09-13T03:46:00.469505",
       "first_seen": "2026-09-02T03:25:39.570106",
       "status": "✅ Posted"
+    },
+    {
+      "title": "cat pun",
+      "url": "https://www.redbubble.com/shop/ap/183944272",
+      "work_id": "183944272",
+      "post_count": 0,
+      "last_posted": null,
+      "first_seen": null,
+      "status": "🆕 Never Posted"
     }
   ]
 }
