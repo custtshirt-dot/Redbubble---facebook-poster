@@ -34,7 +34,7 @@ from facebook_publisher import (
     post_album, post_reels
 )
 from instagram_poster import post_to_instagram
-from pinterest_poster import post_to_pinterest
+from pinterest_feed import add_feed_item
 from blogger_poster import post_to_blogger
 from video_creator import create_reels_video
 from voice_generator import generate_voice, get_random_voice_style
@@ -143,11 +143,16 @@ def run_album_post(images, url, design_hint,
     except Exception as e:
         print(f"⚠️ Instagram album failed: {e}")
 
-    # Pinterest
+    # Pinterest — عن طريق فييد RSS مخصص (رابط المنتج نفسه على Redbubble)
     try:
-        post_to_pinterest(images, caption, url, design_hint)
+        add_feed_item(
+            url=url,
+            image=images[0] if images else '',
+            title=design_hint,
+            description=description,
+        )
     except Exception as e:
-        print(f"⚠️ Pinterest failed: {e}")
+        print(f"⚠️ Pinterest feed update failed: {e}")
 
     # Blogger
     try:
