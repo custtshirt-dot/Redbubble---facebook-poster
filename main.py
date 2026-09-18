@@ -143,7 +143,7 @@ def run_album_post(images, url, design_hint,
     except Exception as e:
         print(f"⚠️ Instagram album failed: {e}")
 
-    # Pinterest — عن طريق فييد RSS مخصص (رابط المنتج نفسه على Redbubble)
+    # Pinterest — فييد RSS + صفحة تحويل فورية لرابط Redbubble
     try:
         add_feed_item(
             url=url,
