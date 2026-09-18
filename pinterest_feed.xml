@@ -1,18 +1,181 @@
-<?xml version="1.0" encoding="UTF-8"?>
+"""
+📌 PINTEREST FEED — RSS + صفحات تحويل فورية لـ Redbubble
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Pinterest بترفض أي <link> في فييد الـ RSS مايبقاش تابع للدومين
+المتحقق منه (Claimed domain). فبدل ما نحط رابط Redbubble مباشرة
+(اللي هترفضه)، بنبني صفحة "تحويل فوري" صغيرة لكل تصميم، مستضافة
+على نفس الدومين المتحقق منه (GitHub Pages بتاعنا)، وهي اللي
+بتحوّل الزائر تلقائيًا لـ Redbubble في أقل من ثانية.
+
+النتيجة: الزائر يدوس على الـ Pin → يوصله صفحة على دومين متحقق
+منه (تمر من قيد Pinterest) → تحويل فوري تلقائي لـ Redbubble.
+
+⚠️ لازم تظبط SITE_BASE_URL تحت بالضبط عنوان GitHub Pages بتاعك،
+   ولازم يكون هو نفسه الدومين اللي عملتله Claim في Pinterest.
+
+الملفات:
+  pinterest_feed_items.json  → قائمة آخر التصاميم (بيانات خام)
+  pinterest_feed.xml         → ملف الـ RSS النهائي اللي Pinterest بيقرأه
+  r/<id>.html                → صفحات التحويل الفورية (واحدة لكل تصميم)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+
+import os
+import re
+import json
+from datetime import datetime
+from xml.sax.saxutils import escape
+
+FEED_ITEMS_FILE = 'pinterest_feed_items.json'
+FEED_XML_FILE   = 'pinterest_feed.xml'
+REDIRECT_DIR    = 'r'          # مجلد صفحات التحويل
+MAX_FEED_ITEMS  = 60            # آخر 60 تصميم بس، عشان الملف يفضل خفيف
+
+# ✏️ غيّره لعنوان GitHub Pages بتاعك (نفس الدومين اللي هتعمله Claim)
+SITE_BASE_URL = os.getenv(
+    'PINTEREST_FEED_BASE_URL',
+    'https://custtshirt-dot.github.io/Redbubble---facebook-poster'
+).rstrip('/')
+
+SITE_TITLE = 'Cust Tshirts — Latest Designs'
+SITE_DESC  = 'Latest print-on-demand designs from Cust Tshirts on Redbubble.'
+
+
+def load_feed_items() -> list:
+    """تحميل قائمة عناصر الفييد الحالية"""
+    if os.path.exists(FEED_ITEMS_FILE):
+        try:
+            with open(FEED_ITEMS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"⚠️ Pinterest feed items load error: {e} — starting fresh")
+    return []
+
+
+def save_feed_items(items: list) -> bool:
+    """حفظ قائمة عناصر الفييد"""
+    try:
+        with open(FEED_ITEMS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(items, f, indent=2, ensure_ascii=False)
+        return True
+    except Exception as e:
+        print(f"⚠️ Failed to save {FEED_ITEMS_FILE}: {e}")
+        return False
+
+
+def _slug_from_url(url: str) -> str:
+    """يطلع work_id أو slug بسيط من رابط Redbubble عشان يستخدمه كاسم ملف"""
+    match = re.search(r'(\d{6,})', url)
+    if match:
+        return match.group(1)
+    return re.sub(r'[^a-zA-Z0-9]+', '-', url)[-40:].strip('-') or 'item'
+
+
+def _write_redirect_page(item_id: str, redbubble_url: str, title: str) -> str:
+    """
+    يكتب صفحة HTML صغيرة بتحوّل تلقائي فورًا لرابط Redbubble.
+    بيرجع الرابط الكامل لصفحة التحويل دي (اللي بنحطه في فييد الـ RSS).
+    """
+    os.makedirs(REDIRECT_DIR, exist_ok=True)
+    file_path = os.path.join(REDIRECT_DIR, f"{item_id}.html")
+
+    safe_title = escape(title or 'Shop this design')
+    safe_url   = escape(redbubble_url)
+
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>{safe_title}</title>
+<meta http-equiv="refresh" content="0; url={safe_url}">
+<link rel="canonical" href="{safe_url}">
+<script>window.location.replace({json.dumps(redbubble_url)});</script>
+<style>body{{font-family:sans-serif;text-align:center;padding:60px 20px;color:#333}}</style>
+</head>
+<body>
+  <p>Redirecting to Redbubble…</p>
+  <p><a href="{safe_url}">Click here if you are not redirected automatically</a></p>
+</body>
+</html>"""
+
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write(html)
+
+    return f"{SITE_BASE_URL}/{REDIRECT_DIR}/{item_id}.html"
+
+
+def build_feed_xml(items: list) -> str:
+    """بناء RSS 2.0 صالح تقدر Pinterest تقرأه"""
+    now = datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')
+
+    items_xml = []
+    for item in items:
+        pub_date = now
+        try:
+            dt = datetime.fromisoformat(item['added_at'])
+            pub_date = dt.strftime('%a, %d %b %Y %H:%M:%S GMT')
+        except Exception:
+            pass
+
+        items_xml.append(f"""    <item>
+      <title>{escape(item.get('title', ''))}</title>
+      <link>{escape(item.get('redirect_link', item.get('url', '')))}</link>
+      <guid isPermaLink="false">{escape(item.get('id', ''))}</guid>
+      <pubDate>{pub_date}</pubDate>
+      <description>{escape(item.get('description', ''))}</description>
+      <enclosure url="{escape(item.get('image', ''))}" type="image/jpeg"/>
+    </item>""")
+
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
   <channel>
-    <title>Cust Tshirts — Latest Designs</title>
-    <link>https://cust-tshirts.blogspot.com/</link>
-    <description>Latest print-on-demand designs from Cust Tshirts on Redbubble.</description>
+    <title>{escape(SITE_TITLE)}</title>
+    <link>{escape(SITE_BASE_URL)}</link>
+    <description>{escape(SITE_DESC)}</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 18 Sep 2026 07:01:09 GMT</lastBuildDate>
-    <item>
-      <title>3 Cylinder Engine Funny Tripod Cat Car Guy Gift Racing</title>
-      <link>https://www.redbubble.com/shop/ap/177196596</link>
-      <guid isPermaLink="false">https://www.redbubble.com/shop/ap/177196596#1789714869.424079</guid>
-      <pubDate>Fri, 18 Sep 2026 07:01:09 GMT</pubDate>
-      <description>Even skulls have feelings! This melting sadness skull captures the beautifully dark side of Halloween. Perfect gothic gift for skull lovers &amp; dark art fans!</description>
-      <enclosure url="https://ih1.redbubble.net/image.6137257791.6596/ssrco,oversize_tee,mens,000000:44f0b734a5,front,product_square,x600.jpg" type="image/jpeg"/>
-    </item>
+    <lastBuildDate>{now}</lastBuildDate>
+{chr(10).join(items_xml)}
   </channel>
 </rss>
+"""
+
+
+def add_feed_item(url: str, image: str, title: str, description: str = '') -> None:
+    """
+    ➕ يضيف تصميم جديد: يبني صفحة تحويل فورية له، يحطه أول الفييد،
+    ويعيد بناء pinterest_feed.xml
+    url         → رابط المنتج الحقيقي على Redbubble
+    image       → رابط صورة المنتج
+    title       → عنوان التصميم
+    description → وصف قصير (اختياري)
+    """
+    items = load_feed_items()
+
+    item_id = _slug_from_url(url)
+    redirect_link = _write_redirect_page(item_id, url, title)
+
+    new_item = {
+        'id':             item_id,
+        'url':            url,             # الرابط الحقيقي (للمرجعية فقط)
+        'redirect_link':  redirect_link,    # ده اللي بينزل في الفييد
+        'image':          image,
+        'title':          title[:100] if title else 'New Design',
+        'description':    (description or title or '')[:300],
+        'added_at':       datetime.now().isoformat(),
+    }
+
+    # لو نفس التصميم اتنشر قبل كده، احذف النسخة القديمة من القايمة
+    items = [i for i in items if i.get('id') != item_id]
+    items.insert(0, new_item)
+    items = items[:MAX_FEED_ITEMS]
+
+    save_feed_items(items)
+
+    xml = build_feed_xml(items)
+    try:
+        with open(FEED_XML_FILE, 'w', encoding='utf-8') as f:
+            f.write(xml)
+        print(f"   📌 Pinterest feed updated ({len(items)} items) → {FEED_XML_FILE}")
+        print(f"      ↳ redirect page: {redirect_link}")
+    except Exception as e:
+        print(f"⚠️ Failed to write {FEED_XML_FILE}: {e}")
