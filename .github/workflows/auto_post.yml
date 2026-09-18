@@ -199,6 +199,7 @@ jobs:
           PINTEREST_TOKEN:       ${{ secrets.PINTEREST_TOKEN }}
           PINTEREST_BOARD_ID:    ${{ secrets.PINTEREST_BOARD_ID }}
           PINTEREST_USERNAME:    ${{ secrets.PINTEREST_USERNAME }}
+          PINTEREST_FEED_BASE_URL: ${{ secrets.PINTEREST_FEED_BASE_URL }}
           GROQ_API_KEY:          ${{ secrets.GROQ_API_KEY }}
           BLOGGER_BLOG_ID:       ${{ secrets.BLOGGER_BLOG_ID }}
           BLOGGER_CLIENT_ID:     ${{ secrets.BLOGGER_CLIENT_ID }}
@@ -218,7 +219,7 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name  "github-actions[bot]"
-          git add -f designs_history.json post_history.json today_design.json failed_designs.json pinterest_feed_items.json pinterest_feed.xml 2>/dev/null || true
+          git add -f designs_history.json post_history.json today_design.json failed_designs.json pinterest_feed_items.json pinterest_feed.xml r 2>/dev/null || true
           git diff --staged --quiet && echo "no changes" && exit 0
           git commit -m "history update [skip ci]"
           for i in 1 2 3; do
