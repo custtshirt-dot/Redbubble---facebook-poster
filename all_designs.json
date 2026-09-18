@@ -1,10 +1,10 @@
 {
-  "last_updated": "2026-09-17T23:19:26.574461",
+  "last_updated": "2026-09-18T03:42:18.021235",
   "store_url": "https://www.redbubble.com/people/cust-tshirts/shop",
-  "total": 86,
-  "posted_count": 85,
+  "total": 87,
+  "posted_count": 86,
   "never_posted_count": 1,
-  "total_posts_made": 466,
+  "total_posts_made": 467,
   "designs": [
     {
       "title": "whimsical art",
@@ -763,6 +763,15 @@
       "status": "✅ Posted"
     },
     {
+      "title": "tripod cat",
+      "url": "https://www.redbubble.com/shop/ap/183953618",
+      "work_id": "183953618",
+      "post_count": 1,
+      "last_posted": "2026-09-17T23:20:33.312608",
+      "first_seen": "2026-09-17T21:10:34.486498",
+      "status": "✅ Posted"
+    },
+    {
       "title": "cat pun",
       "url": "https://www.redbubble.com/shop/ap/183944272",
       "work_id": "183944272",
@@ -773,11 +782,11 @@
     },
     {
       "title": "tripod cat",
-      "url": "https://www.redbubble.com/shop/ap/183953618",
-      "work_id": "183953618",
+      "url": "https://www.redbubble.com/shop/ap/183962037",
+      "work_id": "183962037",
       "post_count": 0,
       "last_posted": null,
-      "first_seen": "2026-09-17T21:10:34.486498",
+      "first_seen": null,
       "status": "🆕 Never Posted"
     }
   ]
